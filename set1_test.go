@@ -1,6 +1,8 @@
 package cpals
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestS1C1(t *testing.T) {
 	testCases := []struct {
@@ -66,8 +68,28 @@ func TestByteLowerCase(t *testing.T) {
 }
 
 func TestS1C3(t *testing.T) {
-	ctxtHexStr := HexStr("1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736")
-	ctxt, _ := DeHex(ctxtHexStr)
-	ptxt := SolveEnglishSingleByteXor(ctxt)
-	t.Logf("MSG: %s\n", ptxt)
+	bufHexStr := HexStr("1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736")
+	buf, _ := DeHex(bufHexStr)
+	msg, _ := SolveEnglishSingleByteXor(buf)
+	t.Logf("MSG: %s\n", msg)
+}
+
+func TestS1C4(t *testing.T) {
+	fname := "4.txt"
+	lines, err := LoadLines(fname)
+	if err != nil {
+		t.Fatalf("Can't load %s: %s", fname, err)
+	}
+
+	bestScore := 0.0
+	var bestMsg []byte
+	for _, l := range lines {
+		buf, _ := DeHex(HexStr(l))
+		msg, score := SolveEnglishSingleByteXor(buf)
+		if score > bestScore {
+			bestMsg = msg
+			bestScore = score
+		}
+	}
+	t.Logf("MSG: %s\n", bestMsg)
 }

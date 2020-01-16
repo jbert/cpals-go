@@ -40,20 +40,20 @@ func BytesEqual(a, b []byte) bool {
 	return true
 }
 
-func SolveEnglishSingleByteXor(ctxt []byte) []byte {
+func SolveEnglishSingleByteXor(ctxt []byte) ([]byte, float64) {
 	var bestB byte
 	bestScore := 0.0
 	for bi := 0; bi <= 0xff; bi++ {
 		b := byte(bi)
 		buf := XorByte(ctxt, b)
 		score := EnglishScore(buf)
-		//		fmt.Printf("%02X: %f: %s\n", bi, score, buf)
+		//fmt.Printf("%02X: %f: %s\n", bi, score, buf)
 		if score > bestScore {
 			bestB = b
 			bestScore = score
 		}
 	}
-	return XorByte(ctxt, bestB)
+	return XorByte(ctxt, bestB), bestScore
 }
 
 func XorByte(buf []byte, b byte) []byte {
@@ -73,7 +73,9 @@ func EnglishScore(msg []byte) float64 {
 
 	score := 0.0
 	for _, c := range msg {
-		c = ByteLowerCase(c)
+		if c >= 'A' && c <= 'Z' {
+			c = ByteLowerCase(c)
+		}
 		byteScore, ok := m[c]
 		//		fmt.Printf("%c: %f\n", c, byteScore)
 		if ok {
