@@ -45,3 +45,29 @@ func TestS1C2(t *testing.T) {
 	}
 	t.Logf("Got: %s\n", got)
 }
+
+func TestByteLowerCase(t *testing.T) {
+	testCases := []struct {
+		in       byte
+		expected byte
+	}{
+		{'A', 'a'},
+		{'a', 'a'},
+		{'F', 'f'},
+		{'f', 'f'},
+		{' ', ' '},
+	}
+	for _, tc := range testCases {
+		got := ByteLowerCase(tc.in)
+		if got != tc.expected {
+			t.Errorf("Failed: %c != %c (%02X != %02X)", got, tc.expected, got, tc.expected)
+		}
+	}
+}
+
+func TestS1C3(t *testing.T) {
+	ctxtHexStr := HexStr("1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736")
+	ctxt, _ := DeHex(ctxtHexStr)
+	ptxt := SolveEnglishSingleByteXor(ctxt)
+	t.Logf("MSG: %s\n", ptxt)
+}
