@@ -4,9 +4,9 @@ import "testing"
 
 func TestS1C1(t *testing.T) {
 	testCases := []struct {
-		hexStr   string
+		hexStr   HexStr
 		dehexErr error
-		b64Str   string
+		b64Str   B64Str
 	}{
 		{
 			"49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d",
@@ -26,4 +26,22 @@ func TestS1C1(t *testing.T) {
 			t.Fatalf("Didn't get correct base64 str [%s] != [%s]", tc.b64Str, b64Str)
 		}
 	}
+}
+
+func TestS1C2(t *testing.T) {
+	aHexStr := HexStr("1c0111001f010100061a024b53535009181c")
+	bHexStr := HexStr("686974207468652062756c6c277320657965")
+	a, _ := DeHex(aHexStr)
+	b, _ := DeHex(bHexStr)
+
+	got, err := Xor(a, b)
+	if err != nil {
+		t.Fatalf("Got error: %s", err)
+	}
+	expectedHex := HexStr("746865206b696420646f6e277420706c6179")
+	expected, _ := DeHex(expectedHex)
+	if !BytesEqual(got, expected) {
+		t.Fatalf("Got [%s] expected [%s]", got, expected)
+	}
+	t.Logf("Got: %s\n", got)
 }
