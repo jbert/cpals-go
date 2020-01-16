@@ -9,12 +9,46 @@ import (
 type HexStr string
 type B64Str string
 
+func (h HexStr) Normalise() HexStr {
+	allowed := []byte("01234567890abcdefABCDEF")
+	m := make(map[byte]struct{})
+	for _, b := range allowed {
+		m[b] = struct{}{}
+	}
+	var g []byte
+	for _, c := range []byte(h) {
+		if _, ok := m[c]; ok {
+			g = append(g, c)
+		}
+	}
+	return HexStr(g)
+}
+
+func (h HexStr) Equals(g HexStr) bool {
+	return h.Normalise() == g.Normalise()
+}
+
 func DeHex(in HexStr) ([]byte, error) {
 	return hex.DecodeString(string(in))
 }
 
+func EnHex(in []byte) HexStr {
+	return HexStr(hex.EncodeToString(in))
+}
+
 func Base64(in []byte) B64Str {
 	return B64Str(base64.StdEncoding.EncodeToString(in))
+}
+
+func XorKey(msg, key []byte) []byte {
+	lenKey := len(key)
+	lenMsg := len(msg)
+	buf := make([]byte, lenMsg)
+	for i := range msg {
+		j := i % lenKey
+		buf[i] = msg[i] ^ key[j]
+	}
+	return buf
 }
 
 func Xor(a, b []byte) ([]byte, error) {
