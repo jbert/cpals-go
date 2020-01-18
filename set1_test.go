@@ -41,27 +41,6 @@ func TestS1C7(t *testing.T) {
 	t.Logf("Msg:\n%s\n", dst)
 }
 
-func TestChunksTranspose(t *testing.T) {
-	testCases := []struct {
-		in       [][]byte
-		expected [][]byte
-	}{
-		{
-			[][]byte{[]byte("ABC"), []byte("DEF")},
-			[][]byte{[]byte("AD"), []byte("BE"), []byte("CF")},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("%v", tc.in), func(t *testing.T) {
-			got := ChunksTranspose(tc.in)
-			if !ChunksEqual(got, tc.expected) {
-				t.Fatalf("got %v expected %v", got, tc.expected)
-			}
-		})
-	}
-}
-
 func TestS1C6(t *testing.T) {
 	fname := "6.txt"
 	buf, err := LoadB64(fname)
@@ -104,47 +83,63 @@ func TestS1C6(t *testing.T) {
 	t.Logf("Keysize: %d Score: %f\n%s\n", sizeScores[0].keySize, sizeScores[0].score, sizeScores[0].msg)
 }
 
-func TestBytesToChunks(t *testing.T) {
-	testCases := []struct {
-		buf            string
-		size           int
-		expectedChunks []string
-		expectedSlop   string
-	}{
-		{"ABCDEFGHIJ", 2, []string{"AB", "CD", "EF", "GH", "IJ"}, ""},
-		{"ABCDEFGHIJ", 3, []string{"ABC", "DEF", "GHI"}, "J"},
+func TestS1C5(t *testing.T) {
+	msg := `Burning 'em, if you ain't quick and nimble
+I go crazy when I hear a cymbal`
+	key := "ICE"
+	buf := XorKey([]byte(msg), []byte(key))
+	hexBuf := EnHex(buf)
+	expectedHexBuf := HexStr(`0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272
+a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f`)
+	if !hexBuf.Equals(expectedHexBuf) {
+		t.Errorf("Got %s expected %s", hexBuf, expectedHexBuf)
 	}
-
-	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("%s: %d", tc.buf, tc.size), func(t *testing.T) {
-			gotChunks, gotSlop := BytesToChunks([]byte(tc.buf), tc.size)
-			if len(gotChunks) != len(tc.expectedChunks) {
-				t.Fatalf("Wrong number of chunks: %d != %d", len(gotChunks), len(tc.expectedChunks))
-			}
-			for i := range gotChunks {
-				if !BytesEqual(gotChunks[i], []byte(tc.expectedChunks[i])) {
-					t.Fatalf("Chunk %d wrong: %v != %v", i, gotChunks[i], []byte(tc.expectedChunks[i]))
-				}
-			}
-			if len(gotSlop) != len(tc.expectedSlop) {
-				t.Fatalf("Wrong length of slop: %d != %d", len(gotSlop), len(tc.expectedSlop))
-			}
-		})
-	}
+	t.Log("Encrypted correctly")
 }
 
-func TestHammingDistance(t *testing.T) {
-	a := []byte("this is a test")
-	b := []byte("wokka wokka!!!")
-	got, err := HammingDistance(a, b)
+func TestS1C4(t *testing.T) {
+	fname := "4.txt"
+	lines, err := LoadLines(fname)
 	if err != nil {
-		t.Fatalf("Got error when shouldn't: %s", err)
+		t.Fatalf("Can't load %s: %s", fname, err)
 	}
-	expected := 37
-	if got != expected {
-		t.Fatalf("got %d expected %d", got, expected)
+
+	bestScore := 0.0
+	var bestMsg []byte
+	for _, l := range lines {
+		buf, _ := DeHex(HexStr(l))
+		msg, score, _ := SolveEnglishSingleByteXor(buf)
+		if score > bestScore {
+			bestMsg = msg
+			bestScore = score
+		}
 	}
-	t.Logf("ok")
+	t.Logf("MSG: %s\n", bestMsg)
+}
+
+func TestS1C3(t *testing.T) {
+	bufHexStr := HexStr("1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736")
+	buf, _ := DeHex(bufHexStr)
+	msg, _, _ := SolveEnglishSingleByteXor(buf)
+	t.Logf("MSG: %s\n", msg)
+}
+
+func TestS1C2(t *testing.T) {
+	aHexStr := HexStr("1c0111001f010100061a024b53535009181c")
+	bHexStr := HexStr("686974207468652062756c6c277320657965")
+	a, _ := DeHex(aHexStr)
+	b, _ := DeHex(bHexStr)
+
+	got, err := Xor(a, b)
+	if err != nil {
+		t.Fatalf("Got error: %s", err)
+	}
+	expectedHex := HexStr("746865206b696420646f6e277420706c6179")
+	expected, _ := DeHex(expectedHex)
+	if !BytesEqual(got, expected) {
+		t.Fatalf("Got [%s] expected [%s]", got, expected)
+	}
+	t.Logf("Got: %s\n", got)
 }
 
 func TestS1C1(t *testing.T) {
@@ -171,82 +166,4 @@ func TestS1C1(t *testing.T) {
 			t.Fatalf("Didn't get correct base64 str [%s] != [%s]", tc.b64Str, b64Str)
 		}
 	}
-}
-
-func TestS1C2(t *testing.T) {
-	aHexStr := HexStr("1c0111001f010100061a024b53535009181c")
-	bHexStr := HexStr("686974207468652062756c6c277320657965")
-	a, _ := DeHex(aHexStr)
-	b, _ := DeHex(bHexStr)
-
-	got, err := Xor(a, b)
-	if err != nil {
-		t.Fatalf("Got error: %s", err)
-	}
-	expectedHex := HexStr("746865206b696420646f6e277420706c6179")
-	expected, _ := DeHex(expectedHex)
-	if !BytesEqual(got, expected) {
-		t.Fatalf("Got [%s] expected [%s]", got, expected)
-	}
-	t.Logf("Got: %s\n", got)
-}
-
-func TestByteLowerCase(t *testing.T) {
-	testCases := []struct {
-		in       byte
-		expected byte
-	}{
-		{'A', 'a'},
-		{'a', 'a'},
-		{'F', 'f'},
-		{'f', 'f'},
-		{' ', ' '},
-	}
-	for _, tc := range testCases {
-		got := ByteLowerCase(tc.in)
-		if got != tc.expected {
-			t.Errorf("Failed: %c != %c (%02X != %02X)", got, tc.expected, got, tc.expected)
-		}
-	}
-}
-
-func TestS1C3(t *testing.T) {
-	bufHexStr := HexStr("1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736")
-	buf, _ := DeHex(bufHexStr)
-	msg, _, _ := SolveEnglishSingleByteXor(buf)
-	t.Logf("MSG: %s\n", msg)
-}
-
-func TestS1C4(t *testing.T) {
-	fname := "4.txt"
-	lines, err := LoadLines(fname)
-	if err != nil {
-		t.Fatalf("Can't load %s: %s", fname, err)
-	}
-
-	bestScore := 0.0
-	var bestMsg []byte
-	for _, l := range lines {
-		buf, _ := DeHex(HexStr(l))
-		msg, score, _ := SolveEnglishSingleByteXor(buf)
-		if score > bestScore {
-			bestMsg = msg
-			bestScore = score
-		}
-	}
-	t.Logf("MSG: %s\n", bestMsg)
-}
-
-func TestS1C5(t *testing.T) {
-	msg := `Burning 'em, if you ain't quick and nimble
-I go crazy when I hear a cymbal`
-	key := "ICE"
-	buf := XorKey([]byte(msg), []byte(key))
-	hexBuf := EnHex(buf)
-	expectedHexBuf := HexStr(`0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272
-a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f`)
-	if !hexBuf.Equals(expectedHexBuf) {
-		t.Errorf("Got %s expected %s", hexBuf, expectedHexBuf)
-	}
-	t.Log("Encrypted correctly")
 }

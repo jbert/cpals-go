@@ -294,3 +294,12 @@ func BytesFindDuplicateBlock(buf []byte, blockSize int) []byte {
 	}
 	return nil
 }
+
+func BytesPKCS7Pad(buf []byte, blockSize int) []byte {
+	padBytes := byte(blockSize - (len(buf) % blockSize))
+	padding := make([]byte, padBytes)
+	for i := range padding {
+		padding[i] = padBytes
+	}
+	return append(buf, padding...)
+}
