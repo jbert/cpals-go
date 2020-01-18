@@ -1,6 +1,7 @@
 package cpals // import "github.com/jbert/cpals-go
 
 import (
+	"crypto/cipher"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -258,4 +259,24 @@ func ChunksTranspose(in [][]byte) [][]byte {
 		}
 	}
 	return out
+}
+
+type ECBDecrypter struct {
+	cipher.Block
+}
+
+func NewECBDecrypter(cipher cipher.Block) ECBDecrypter {
+	return ECBDecrypter{cipher}
+}
+
+// Implent crypto/cipher.BlockMode
+func (d *ECBDecrypter) BlockSize() int {
+	return d.Block.BlockSize()
+}
+
+func (d *ECBDecrypter) CryptBlocks(dst, src []byte) {
+	numChunks := len(src) / d.BlockSize()
+	for i := 0; i < numChunks; i++ {
+		d.Decrypt(dst[i*d.BlockSize():], src[i*d.BlockSize():])
+	}
 }

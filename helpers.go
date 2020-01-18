@@ -10,6 +10,14 @@ import (
 	"strings"
 )
 
+func MustLoadB64(fname string) []byte {
+	buf, err := LoadB64(fname)
+	if err != nil {
+		panic(fmt.Sprintf("Couldn't load B64 from %s: %s", fname, err))
+	}
+	return buf
+}
+
 func LoadB64(fname string) ([]byte, error) {
 	f, err := os.Open(fname)
 	if err != nil {

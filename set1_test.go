@@ -1,10 +1,26 @@
 package cpals
 
 import (
+	"crypto/aes"
 	"fmt"
 	"sort"
 	"testing"
 )
+
+func TestS1C7(t *testing.T) {
+	fname := "7.txt"
+	buf := MustLoadB64(fname)
+	key := []byte("YELLOW SUBMARINE")
+	aes, err := aes.NewCipher(key)
+	if err != nil {
+		t.Fatalf("Can't create aes cipher: %s", err)
+	}
+	dec := NewECBDecrypter(aes)
+
+	dst := make([]byte, len(buf))
+	dec.CryptBlocks(dst, buf)
+	t.Logf("Msg:\n%s\n", dst)
+}
 
 func TestChunksTranspose(t *testing.T) {
 	testCases := []struct {
