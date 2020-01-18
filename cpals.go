@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"math/bits"
+	"sort"
 )
 
 type HexStr string
@@ -74,7 +76,7 @@ func BytesEqual(a, b []byte) bool {
 	return true
 }
 
-func SolveEnglishSingleByteXor(ctxt []byte) ([]byte, float64) {
+func SolveEnglishSingleByteXor(ctxt []byte) ([]byte, float64, byte) {
 	var bestB byte
 	bestScore := 0.0
 	for bi := 0; bi <= 0xff; bi++ {
@@ -87,7 +89,7 @@ func SolveEnglishSingleByteXor(ctxt []byte) ([]byte, float64) {
 			bestScore = score
 		}
 	}
-	return XorByte(ctxt, bestB), bestScore
+	return XorByte(ctxt, bestB), bestScore, bestB
 }
 
 func XorByte(buf []byte, b byte) []byte {
@@ -99,7 +101,50 @@ func XorByte(buf []byte, b byte) []byte {
 }
 
 func EnglishScore(msg []byte) float64 {
-	chars := []byte(" etaoinshrdlu")
+	score := 0
+	boost := map[byte]int{
+		'e': 2,
+		't': 2,
+		'a': 2,
+		'o': 2,
+		'i': 2,
+		'n': 2,
+
+		's': 1,
+		'h': 1,
+		'r': 1,
+		'd': 1,
+		'l': 1,
+		'u': 1,
+
+		' ': 2,
+		// Don't penalise for these
+		'.':  0,
+		',':  0,
+		'\'': 0,
+		'"':  0,
+	}
+	for _, c := range msg {
+		if c >= 'A' && c <= 'Z' {
+			c = ByteLowerCase(c)
+		}
+		if c >= 'a' && c <= 'z' {
+			score += 1
+		}
+
+		extra, ok := boost[c]
+		if ok {
+			score += extra
+		} else {
+			score -= 1
+		}
+	}
+	return float64(score) / float64(len(msg))
+}
+
+/*
+func EnglishScore(msg []byte) float64 {
+	chars := []byte(" etaoinshrdlu\n")
 	m := make(map[byte]float64)
 	for i, b := range chars {
 		m[b] = 1 / float64(i+1)
@@ -114,11 +159,103 @@ func EnglishScore(msg []byte) float64 {
 		//		fmt.Printf("%c: %f\n", c, byteScore)
 		if ok {
 			score += byteScore
+		} else if c&0x80 > 0 {
+			score -= 10.0
 		}
 	}
-	return score
+	return score / float64(len(msg))
 }
+*/
 
 func ByteLowerCase(b byte) byte {
 	return b | 0x20
+}
+
+func HammingDistance(a, b []byte) (int, error) {
+	if len(a) != len(b) {
+		return 0, fmt.Errorf("Length mismatch %d != %d", len(a), len(b))
+	}
+	hDist := 0
+	for i := range a {
+		hDist += byteHammingDist(a[i], b[i])
+	}
+	return hDist, nil
+}
+
+func byteHammingDist(a, b byte) int {
+	x := a ^ b
+	return bits.OnesCount8(x)
+}
+
+func BytesToChunks(buf []byte, chunkSize int) ([][]byte, []byte) {
+	chunks := make([][]byte, len(buf)/chunkSize)
+	for i := 0; i < len(chunks); i++ {
+		pos := i * chunkSize
+		chunks[i] = buf[pos : pos+chunkSize]
+	}
+	slop := buf[len(chunks)*chunkSize:]
+	return chunks, slop
+}
+
+func GuessXorKeySize(buf []byte) []int {
+
+	type sizeDistance struct {
+		keySize  int
+		distance float64
+	}
+	sizeDistances := make([]sizeDistance, 0)
+
+	for keySize := 2; keySize < 41; keySize++ {
+		chunks, _ := BytesToChunks(buf, keySize)
+
+		if len(chunks) < 4 {
+			panic("madness")
+		}
+		distance := 0.0
+		chunkDistance, _ := HammingDistance(chunks[0], chunks[1])
+		distance += float64(chunkDistance)
+		chunkDistance, _ = HammingDistance(chunks[1], chunks[2])
+		distance += float64(chunkDistance)
+		chunkDistance, _ = HammingDistance(chunks[2], chunks[3])
+		distance += float64(chunkDistance)
+
+		distance /= 3.0
+		distance /= float64(keySize)
+
+		sizeDistances = append(sizeDistances, sizeDistance{keySize, distance})
+	}
+
+	sort.Slice(sizeDistances, func(i, j int) bool {
+		return sizeDistances[i].distance < sizeDistances[j].distance
+	})
+
+	sortedSizes := make([]int, len(sizeDistances))
+	for i := range sizeDistances {
+		sortedSizes[i] = sizeDistances[i].keySize
+	}
+	return sortedSizes
+}
+
+func ChunksEqual(a, b [][]byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !BytesEqual(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func ChunksTranspose(in [][]byte) [][]byte {
+	numOut := len(in[0])
+	out := make([][]byte, numOut)
+	for i := range out {
+		out[i] = make([]byte, len(in))
+		for j := range out[i] {
+			out[i][j] = in[j][i]
+		}
+	}
+	return out
 }

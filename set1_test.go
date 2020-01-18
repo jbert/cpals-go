@@ -1,8 +1,116 @@
 package cpals
 
 import (
+	"fmt"
+	"sort"
 	"testing"
 )
+
+func TestChunksTranspose(t *testing.T) {
+	testCases := []struct {
+		in       [][]byte
+		expected [][]byte
+	}{
+		{
+			[][]byte{[]byte("ABC"), []byte("DEF")},
+			[][]byte{[]byte("AD"), []byte("BE"), []byte("CF")},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("%v", tc.in), func(t *testing.T) {
+			got := ChunksTranspose(tc.in)
+			if !ChunksEqual(got, tc.expected) {
+				t.Fatalf("got %v expected %v", got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestS1C6(t *testing.T) {
+	fname := "6.txt"
+	buf, err := LoadB64(fname)
+	if err != nil {
+		t.Fatalf("Can't load base64 from %s: %s", fname, err)
+	}
+	//	t.Logf("Read buf: %v", buf)
+
+	keySizes := GuessXorKeySize(buf)
+
+	type sizeScore struct {
+		keySize int
+		score   float64
+		msg     []byte
+	}
+
+	numToExamine := 10
+	sizeScores := make([]sizeScore, numToExamine)
+	for i, keySize := range keySizes[0:numToExamine] {
+		//		t.Logf("Key size: %d", keySize)
+		chunks, _ := BytesToChunks(buf, keySize)
+		chunks = ChunksTranspose(chunks)
+		if len(chunks) != keySize {
+			t.Fatalf("WTF")
+		}
+		key := make([]byte, keySize)
+		for i := range key {
+			_, _, b := SolveEnglishSingleByteXor(chunks[i])
+			key[i] = b
+		}
+		msg := XorKey(buf, key)
+		englishScore := EnglishScore(msg)
+		sizeScores[i] = sizeScore{keySize, englishScore, msg}
+		//		t.Logf("Keysize: %d Score %f\n%s\n", sizeScores[i].keySize, sizeScores[i].score, sizeScores[i].msg)
+	}
+
+	sort.Slice(sizeScores, func(i, j int) bool {
+		return sizeScores[i].score > sizeScores[j].score
+	})
+	t.Logf("Keysize: %d Score: %f\n%s\n", sizeScores[0].keySize, sizeScores[0].score, sizeScores[0].msg)
+}
+
+func TestBytesToChunks(t *testing.T) {
+	testCases := []struct {
+		buf            string
+		size           int
+		expectedChunks []string
+		expectedSlop   string
+	}{
+		{"ABCDEFGHIJ", 2, []string{"AB", "CD", "EF", "GH", "IJ"}, ""},
+		{"ABCDEFGHIJ", 3, []string{"ABC", "DEF", "GHI"}, "J"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("%s: %d", tc.buf, tc.size), func(t *testing.T) {
+			gotChunks, gotSlop := BytesToChunks([]byte(tc.buf), tc.size)
+			if len(gotChunks) != len(tc.expectedChunks) {
+				t.Fatalf("Wrong number of chunks: %d != %d", len(gotChunks), len(tc.expectedChunks))
+			}
+			for i := range gotChunks {
+				if !BytesEqual(gotChunks[i], []byte(tc.expectedChunks[i])) {
+					t.Fatalf("Chunk %d wrong: %v != %v", i, gotChunks[i], []byte(tc.expectedChunks[i]))
+				}
+			}
+			if len(gotSlop) != len(tc.expectedSlop) {
+				t.Fatalf("Wrong length of slop: %d != %d", len(gotSlop), len(tc.expectedSlop))
+			}
+		})
+	}
+}
+
+func TestHammingDistance(t *testing.T) {
+	a := []byte("this is a test")
+	b := []byte("wokka wokka!!!")
+	got, err := HammingDistance(a, b)
+	if err != nil {
+		t.Fatalf("Got error when shouldn't: %s", err)
+	}
+	expected := 37
+	if got != expected {
+		t.Fatalf("got %d expected %d", got, expected)
+	}
+	t.Logf("ok")
+}
 
 func TestS1C1(t *testing.T) {
 	testCases := []struct {
@@ -70,7 +178,7 @@ func TestByteLowerCase(t *testing.T) {
 func TestS1C3(t *testing.T) {
 	bufHexStr := HexStr("1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736")
 	buf, _ := DeHex(bufHexStr)
-	msg, _ := SolveEnglishSingleByteXor(buf)
+	msg, _, _ := SolveEnglishSingleByteXor(buf)
 	t.Logf("MSG: %s\n", msg)
 }
 
@@ -85,7 +193,7 @@ func TestS1C4(t *testing.T) {
 	var bestMsg []byte
 	for _, l := range lines {
 		buf, _ := DeHex(HexStr(l))
-		msg, score := SolveEnglishSingleByteXor(buf)
+		msg, score, _ := SolveEnglishSingleByteXor(buf)
 		if score > bestScore {
 			bestMsg = msg
 			bestScore = score
