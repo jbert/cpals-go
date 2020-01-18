@@ -1,24 +1,40 @@
 package cpals
 
 import (
-	"crypto/aes"
 	"fmt"
 	"sort"
 	"testing"
 )
 
+/*
+func TestS1C8(t *testing.T) {
+	fname := "8.txt"
+	lines, err := LoadLines(fname)
+	if err != nil {
+		t.Fatalf("Can't load lines from file [%s]: %w", fname, err)
+	}
+
+	for _, l := range lines {
+		buf, _ := DeHex(HexStr(l))
+	}
+}
+*/
+
 func TestS1C7(t *testing.T) {
 	fname := "7.txt"
 	buf := MustLoadB64(fname)
 	key := []byte("YELLOW SUBMARINE")
-	aes, err := aes.NewCipher(key)
-	if err != nil {
-		t.Fatalf("Can't create aes cipher: %s", err)
-	}
-	dec := NewECBDecrypter(aes)
+	dst := AESECBDecrypt(key, buf)
+	/*
+		aes, err := aes.NewCipher(key)
+		if err != nil {
+			t.Fatalf("Can't create aes cipher: %s", err)
+		}
+		dec := NewECBDecrypter(aes)
 
-	dst := make([]byte, len(buf))
-	dec.CryptBlocks(dst, buf)
+		dst := make([]byte, len(buf))
+		dec.CryptBlocks(dst, buf)
+	*/
 	t.Logf("Msg:\n%s\n", dst)
 }
 
