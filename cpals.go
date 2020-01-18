@@ -280,3 +280,17 @@ func (d *ECBDecrypter) CryptBlocks(dst, src []byte) {
 		d.Decrypt(dst[i*d.BlockSize():], src[i*d.BlockSize():])
 	}
 }
+
+func BytesFindDuplicateBlock(buf []byte, blockSize int) []byte {
+	chunks, _ := BytesToChunks(buf, blockSize)
+	m := make(map[string]bool)
+	for _, c := range chunks {
+		s := string(c)
+		_, ok := m[s]
+		if ok {
+			return c
+		}
+		m[s] = true
+	}
+	return nil
+}

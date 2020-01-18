@@ -6,19 +6,22 @@ import (
 	"testing"
 )
 
-/*
 func TestS1C8(t *testing.T) {
 	fname := "8.txt"
 	lines, err := LoadLines(fname)
 	if err != nil {
-		t.Fatalf("Can't load lines from file [%s]: %w", fname, err)
+		t.Fatalf("Can't load lines from file [%s]: %s", fname, err)
 	}
 
-	for _, l := range lines {
+	blockSize := 16
+	for i, l := range lines {
 		buf, _ := DeHex(HexStr(l))
+		dup := BytesFindDuplicateBlock(buf, blockSize)
+		if dup != nil {
+			fmt.Printf("Line %d has duplicate blocks\n", i)
+		}
 	}
 }
-*/
 
 func TestS1C7(t *testing.T) {
 	fname := "7.txt"
