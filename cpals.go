@@ -10,6 +10,9 @@ import (
 	"sort"
 )
 
+var YellowKey = []byte("YELLOW SUBMARINE")
+var ZeroIV = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
 type HexStr string
 type B64Str string
 
@@ -276,8 +279,8 @@ func (d *ECBDecrypter) BlockSize() int {
 }
 
 func (d *ECBDecrypter) CryptBlocks(dst, src []byte) {
-	numChunks := len(src) / d.BlockSize()
-	for i := 0; i < numChunks; i++ {
+	nBlocks := len(src) / d.BlockSize()
+	for i := 0; i < nBlocks; i++ {
 		d.Decrypt(dst[i*d.BlockSize():], src[i*d.BlockSize():])
 	}
 }
@@ -296,8 +299,8 @@ func (d *ECBEncrypter) BlockSize() int {
 }
 
 func (d *ECBEncrypter) CryptBlocks(dst, src []byte) {
-	numChunks := len(src) / d.BlockSize()
-	for i := 0; i < numChunks; i++ {
+	nBlocks := len(src) / d.BlockSize()
+	for i := 0; i < nBlocks; i++ {
 		d.Encrypt(dst[i*d.BlockSize():], src[i*d.BlockSize():])
 	}
 }
@@ -347,4 +350,89 @@ func BytesPKCS7Pad(buf []byte, blockSize int) []byte {
 		padding[i] = padBytes
 	}
 	return append(buf, padding...)
+}
+
+type CBCEncrypter struct {
+	cipher.Block
+	iv []byte
+}
+
+func NewCBCEncrypter(cipher cipher.Block, iv []byte) CBCEncrypter {
+	if len(iv) != cipher.BlockSize() {
+		panic(fmt.Sprintf("iv length must match blocksize %d != %d", len(iv), cipher.BlockSize()))
+	}
+	return CBCEncrypter{cipher, iv}
+}
+
+func (d *CBCEncrypter) BlockSize() int {
+	return d.Block.BlockSize()
+}
+
+func (d *CBCEncrypter) CryptBlocks(dst, src []byte) {
+	nBlocks := len(src) / d.BlockSize()
+	lastCipherBlock := d.iv
+	for i := 0; i < nBlocks; i++ {
+		srcBlock := src[i*d.BlockSize() : (i+1)*d.BlockSize()]
+		srcBlock, err := Xor(srcBlock, lastCipherBlock)
+		if err != nil {
+			panic(fmt.Sprintf("block size confusion: %s", err))
+		}
+		d.Encrypt(dst[i*d.BlockSize():], srcBlock)
+		lastCipherBlock = dst[i*d.BlockSize() : (i+1)*d.BlockSize()]
+	}
+}
+
+type CBCDecrypter struct {
+	cipher.Block
+	iv []byte
+}
+
+func NewCBCDecrypter(cipher cipher.Block, iv []byte) CBCDecrypter {
+	if len(iv) != cipher.BlockSize() {
+		panic(fmt.Sprintf("iv length must match blocksize %d != %d", len(iv), cipher.BlockSize()))
+	}
+	return CBCDecrypter{cipher, iv}
+}
+
+func (d *CBCDecrypter) BlockSize() int {
+	return d.Block.BlockSize()
+}
+
+func (d *CBCDecrypter) CryptBlocks(dst, src []byte) {
+	nBlocks := len(src) / d.BlockSize()
+	lastCipherBlock := d.iv
+	workBlock := make([]byte, d.BlockSize())
+	for i := 0; i < nBlocks; i++ {
+		d.Decrypt(workBlock, src[i*d.BlockSize():])
+		workBlock, err := Xor(workBlock, lastCipherBlock)
+		if err != nil {
+			panic(fmt.Sprintf("block size confusion: %s", err))
+		}
+		copy(dst[i*d.BlockSize():], workBlock)
+		lastCipherBlock = src[i*d.BlockSize() : (i+1)*d.BlockSize()]
+	}
+}
+
+func AESCBCDecrypt(key []byte, iv []byte, buf []byte) []byte {
+	aes, err := aes.NewCipher(key)
+	if err != nil {
+		panic(fmt.Sprintf("Can't create aes cipher: %s", err))
+	}
+	dec := NewCBCDecrypter(aes, iv)
+
+	dst := make([]byte, len(buf))
+	dec.CryptBlocks(dst, buf)
+	return dst
+}
+
+func AESCBCEncrypt(key []byte, iv []byte, buf []byte) []byte {
+	aes, err := aes.NewCipher(key)
+	if err != nil {
+		panic(fmt.Sprintf("Can't create aes cipher: %s", err))
+	}
+	dec := NewCBCEncrypter(aes, iv)
+
+	dst := make([]byte, len(buf))
+	dec.CryptBlocks(dst, buf)
+	return dst
 }

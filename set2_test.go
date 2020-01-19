@@ -5,6 +5,12 @@ import (
 	"testing"
 )
 
+func TestS2C10(t *testing.T) {
+	buf := MustLoadB64("10.txt")
+	msg := AESCBCDecrypt(YellowKey, ZeroIV, buf)
+	t.Log(string(msg))
+}
+
 func TestS2C9(t *testing.T) {
 	yellowSub := []byte("YELLOW SUBMARINE")
 

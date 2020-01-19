@@ -26,8 +26,7 @@ func TestS1C8(t *testing.T) {
 func TestS1C7(t *testing.T) {
 	fname := "7.txt"
 	buf := MustLoadB64(fname)
-	key := []byte("YELLOW SUBMARINE")
-	dst := AESECBDecrypt(key, buf)
+	dst := AESECBDecrypt(YellowKey, buf)
 	/*
 		aes, err := aes.NewCipher(key)
 		if err != nil {
