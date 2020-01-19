@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/bits"
 	"math/rand"
@@ -389,6 +390,22 @@ func BytesPKCS7Pad(buf []byte, blockSize int) []byte {
 	return append(buf, padding...)
 }
 
+func BytesPKCS7UnPad(buf []byte) ([]byte, error) {
+	if len(buf) == 0 {
+		return nil, errors.New("Empty buf is not padded")
+	}
+	padVal := int(buf[len(buf)-1])
+	if padVal > len(buf) {
+		return nil, fmt.Errorf("Pad byte too large %d > %d", padVal, len(buf))
+	}
+	for i := 0; i < padVal; i++ {
+		if buf[len(buf)-1-i] != byte(padVal) {
+			return nil, fmt.Errorf("Invalid pad byte %d from end: %d != %d", i, buf[len(buf)-i-1], padVal)
+		}
+	}
+	return buf[:len(buf)-padVal], nil
+}
+
 type CBCEncrypter struct {
 	cipher.Block
 	iv []byte
@@ -459,10 +476,15 @@ func AESCBCDecrypt(key []byte, iv []byte, buf []byte) []byte {
 
 	dst := make([]byte, len(buf))
 	dec.CryptBlocks(dst, buf)
+	dst, err = BytesPKCS7UnPad(dst)
+	if err != nil {
+		panic(fmt.Sprintf("Can't decrypt - invalid padding: %s", err))
+	}
 	return dst
 }
 
 func AESCBCEncrypt(key []byte, iv []byte, buf []byte) []byte {
+	buf = BytesPKCS7Pad(buf, AESBlockSize)
 	aes, err := aes.NewCipher(key)
 	if err != nil {
 		panic(fmt.Sprintf("Can't create aes cipher: %s", err))
