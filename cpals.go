@@ -1,6 +1,7 @@
 package cpals // import "github.com/jbert/cpals-go
 
 import (
+	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
 	"encoding/hex"
@@ -279,6 +280,50 @@ func (d *ECBDecrypter) CryptBlocks(dst, src []byte) {
 	for i := 0; i < numChunks; i++ {
 		d.Decrypt(dst[i*d.BlockSize():], src[i*d.BlockSize():])
 	}
+}
+
+type ECBEncrypter struct {
+	cipher.Block
+}
+
+func NewECBEncrypter(cipher cipher.Block) ECBEncrypter {
+	return ECBEncrypter{cipher}
+}
+
+// Implent crypto/cipher.BlockMode
+func (d *ECBEncrypter) BlockSize() int {
+	return d.Block.BlockSize()
+}
+
+func (d *ECBEncrypter) CryptBlocks(dst, src []byte) {
+	numChunks := len(src) / d.BlockSize()
+	for i := 0; i < numChunks; i++ {
+		d.Encrypt(dst[i*d.BlockSize():], src[i*d.BlockSize():])
+	}
+}
+
+func AESECBDecrypt(key []byte, buf []byte) []byte {
+	aes, err := aes.NewCipher(key)
+	if err != nil {
+		panic(fmt.Sprintf("Can't create aes cipher: %s", err))
+	}
+	dec := NewECBDecrypter(aes)
+
+	dst := make([]byte, len(buf))
+	dec.CryptBlocks(dst, buf)
+	return dst
+}
+
+func AESECBEncrypt(key []byte, buf []byte) []byte {
+	aes, err := aes.NewCipher(key)
+	if err != nil {
+		panic(fmt.Sprintf("Can't create aes cipher: %s", err))
+	}
+	dec := NewECBEncrypter(aes)
+
+	dst := make([]byte, len(buf))
+	dec.CryptBlocks(dst, buf)
+	return dst
 }
 
 func BytesFindDuplicateBlock(buf []byte, blockSize int) []byte {

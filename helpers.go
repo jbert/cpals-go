@@ -2,7 +2,6 @@ package cpals
 
 import (
 	"bufio"
-	"crypto/aes"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -60,16 +59,4 @@ LINES:
 		lines = append(lines, line)
 	}
 	return lines, nil
-}
-
-func AESECBDecrypt(key []byte, buf []byte) []byte {
-	aes, err := aes.NewCipher(key)
-	if err != nil {
-		panic(fmt.Sprintf("Can't create aes cipher: %s", err))
-	}
-	dec := NewECBDecrypter(aes)
-
-	dst := make([]byte, len(buf))
-	dec.CryptBlocks(dst, buf)
-	return dst
 }
