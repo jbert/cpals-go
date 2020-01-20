@@ -57,8 +57,8 @@ func TestAESECB(t *testing.T) {
 	if BytesEqual(got, in) {
 		t.Fatalf("poor encryption...")
 	}
-	if !BytesEqual(got, expected) {
-		t.Fatalf("Didn't match vector got %v expected %v", got, expected)
+	if !BytesEqual(got[0:16], expected) {
+		t.Fatalf("Didn't match vector got %v expected %v", got[0:16], expected)
 	}
 
 	out := AESECBDecrypt(key, got)

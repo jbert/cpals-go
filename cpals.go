@@ -3,8 +3,6 @@ package cpals // import "github.com/jbert/cpals-go
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/bits"
@@ -50,40 +48,6 @@ With this regard their currents turn awry
 And lose the name of action.
 `)
 var AESBlockSize = len(YellowKey)
-
-type HexStr string
-type B64Str string
-
-func (h HexStr) Normalise() HexStr {
-	allowed := []byte("01234567890abcdefABCDEF")
-	m := make(map[byte]struct{})
-	for _, b := range allowed {
-		m[b] = struct{}{}
-	}
-	var g []byte
-	for _, c := range []byte(h) {
-		if _, ok := m[c]; ok {
-			g = append(g, c)
-		}
-	}
-	return HexStr(g)
-}
-
-func (h HexStr) Equals(g HexStr) bool {
-	return h.Normalise() == g.Normalise()
-}
-
-func DeHex(in HexStr) ([]byte, error) {
-	return hex.DecodeString(string(in))
-}
-
-func EnHex(in []byte) HexStr {
-	return HexStr(hex.EncodeToString(in))
-}
-
-func Base64(in []byte) B64Str {
-	return B64Str(base64.StdEncoding.EncodeToString(in))
-}
 
 func XorKey(msg, key []byte) []byte {
 	lenKey := len(key)
@@ -352,10 +316,15 @@ func AESECBDecrypt(key []byte, buf []byte) []byte {
 
 	dst := make([]byte, len(buf))
 	dec.CryptBlocks(dst, buf)
+	dst, err = BytesPKCS7UnPad(dst)
+	if err != nil {
+		panic(fmt.Sprintf("Can't decrypt - invalid padding: %s", err))
+	}
 	return dst
 }
 
 func AESECBEncrypt(key []byte, buf []byte) []byte {
+	buf = BytesPKCS7Pad(buf, AESBlockSize)
 	aes, err := aes.NewCipher(key)
 	if err != nil {
 		panic(fmt.Sprintf("Can't create aes cipher: %s", err))
@@ -515,4 +484,36 @@ func RandomBytes(n int) []byte {
 
 func RandomKey() []byte {
 	return RandomBytes(len(YellowKey))
+}
+
+func IsECB(blockCryptor func(buf []byte) []byte, blockSize int) bool {
+	in := make([]byte, blockSize*16)
+	buf := blockCryptor(in)
+	return HasDuplicateBlocks(buf, blockSize)
+}
+
+func FindBlockSize(blockCryptor func(buf []byte) []byte) int {
+	lastLen := 0
+	maxBlockSize := 1024
+	for i := 0; i < maxBlockSize; i++ {
+		in := make([]byte, i)
+		buf := blockCryptor(in)
+		l := len(buf)
+		if l == 0 {
+			panic("not a block cipher")
+		}
+		if lastLen == 0 {
+			lastLen = l
+			continue
+		}
+		if lastLen != l {
+			return l - lastLen
+		}
+	}
+	panic("Didn't find blocksize")
+}
+
+func HasDuplicateBlocks(buf []byte, blockSize int) bool {
+	dup := BytesFindDuplicateBlock(buf, blockSize)
+	return dup != nil
 }

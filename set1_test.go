@@ -1,7 +1,6 @@
 package cpals
 
 import (
-	"fmt"
 	"sort"
 	"testing"
 )
@@ -18,7 +17,7 @@ func TestS1C8(t *testing.T) {
 		buf, _ := DeHex(HexStr(l))
 		dup := BytesFindDuplicateBlock(buf, blockSize)
 		if dup != nil {
-			fmt.Printf("Line %d has duplicate blocks\n", i)
+			t.Logf("Line %d has duplicate blocks\n", i)
 		}
 	}
 }
@@ -160,7 +159,7 @@ func TestS1C1(t *testing.T) {
 			t.Fatalf("Didn't get correct error return [%s] != [%s]", tc.dehexErr, err)
 		}
 		t.Logf("Secret str is [%s]", str)
-		b64Str := Base64(str)
+		b64Str := EnBase64(str)
 		if b64Str != tc.b64Str {
 			t.Fatalf("Didn't get correct base64 str [%s] != [%s]", tc.b64Str, b64Str)
 		}
