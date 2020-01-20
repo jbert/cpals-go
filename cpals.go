@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"math/bits"
 	"math/rand"
+	"net/url"
 	"sort"
+	"strings"
 )
 
 var YellowKey = []byte("YELLOW SUBMARINE")
@@ -493,6 +495,11 @@ func IsECB(blockCryptor func(buf []byte) []byte, blockSize int) bool {
 }
 
 func FindBlockSize(blockCryptor func(buf []byte) []byte) int {
+	blockSize, _ := FindBlockSizeAndFullPadBlock(blockCryptor)
+	return blockSize
+}
+
+func FindBlockSizeAndFullPadBlock(blockCryptor func(buf []byte) []byte) (int, []byte) {
 	lastLen := 0
 	maxBlockSize := 1024
 	for i := 0; i < maxBlockSize; i++ {
@@ -507,7 +514,8 @@ func FindBlockSize(blockCryptor func(buf []byte) []byte) int {
 			continue
 		}
 		if lastLen != l {
-			return l - lastLen
+			blockSize := l - lastLen
+			return blockSize, buf[len(buf)-blockSize:]
 		}
 	}
 	panic("Didn't find blocksize")
@@ -516,4 +524,61 @@ func FindBlockSize(blockCryptor func(buf []byte) []byte) int {
 func HasDuplicateBlocks(buf []byte, blockSize int) bool {
 	dup := BytesFindDuplicateBlock(buf, blockSize)
 	return dup != nil
+}
+
+func ParseKeyVal(s string) (map[string]string, error) {
+	values, err := url.ParseQuery(s)
+	if err != nil {
+		return nil, fmt.Errorf("Can't parse as URL: %w", err)
+	}
+	m := make(map[string]string)
+	for k, v := range values {
+		//		if len(v) > 1 {
+		//			return nil, fmt.Errorf("Multiple values for key %s", k)
+		//		}
+		m[k] = v[0]
+	}
+	return m, nil
+}
+
+type UserProfile struct {
+	email string
+	uid   string
+	role  string
+}
+
+func (up UserProfile) Encode() string {
+	return fmt.Sprintf("email=%s&uid=%s&role=%s", up.email, up.uid, up.role)
+}
+
+func ProfileFor(email string) string {
+	email = strings.ReplaceAll(email, "&=", "")
+	up := UserProfile{
+		email: email,
+		uid:   "10",
+		role:  "user",
+	}
+	return up.Encode()
+}
+
+func ParseProfile(s string) (UserProfile, error) {
+	var up UserProfile
+	m, err := ParseKeyVal(s)
+	if err != nil {
+		return up, err
+	}
+	var ok bool
+	up.email, ok = m["email"]
+	if !ok {
+		return up, errors.New("no email")
+	}
+	up.uid, ok = m["uid"]
+	if !ok {
+		return up, errors.New("no uid")
+	}
+	up.role, ok = m["role"]
+	if !ok {
+		return up, errors.New("no role")
+	}
+	return up, nil
 }

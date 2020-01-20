@@ -5,6 +5,32 @@ import (
 	"testing"
 )
 
+func TestParseKeyVal(t *testing.T) {
+	got, err := ParseKeyVal("foo=bar&baz=qux&zap=zazzle")
+	if err != nil {
+		t.Fatalf("Failed to parse: %s", err)
+	}
+	expected := map[string]string{
+		"foo": "bar",
+		"baz": "qux",
+		"zap": "zazzle",
+	}
+
+	if len(got) != len(expected) {
+		t.Fatalf("Map size mismatch")
+	}
+	for k, vExpected := range expected {
+		vGot, ok := got[k]
+		if !ok {
+			t.Fatalf("Didn't get key %s", k)
+		}
+		if vGot != vExpected {
+			t.Fatalf("key %s got %s expeccted %s", k, vGot, vExpected)
+		}
+		t.Logf("key %s ok", k)
+	}
+}
+
 func TestAESCBC(t *testing.T) {
 	key := []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
 	in := Hamlet

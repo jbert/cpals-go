@@ -6,6 +6,85 @@ import (
 	"testing"
 )
 
+func TestS2C13(t *testing.T) {
+	// Want to switch out a block 'userPADDING' with 'admin&'
+	// have an email ending in 'admin', so get a sep at end
+	// save blocks at all offsets
+
+	cryptor := func(buf []byte) []byte {
+		return C13EncryptedProfileFor(string(buf))
+	}
+	blockSize, pkcsFullPadBlock := FindBlockSizeAndFullPadBlock(cryptor)
+	t.Logf("block size is %d\n", blockSize)
+
+	//target := []byte("admin")
+	target := []byte("admin&foo=123456")
+	savedBlocks := make([][]byte, 0)
+	for i := 0; i < blockSize; i++ {
+		in := make([]byte, i+len(target))
+		copy(in[i:], target)
+		buf := C13EncryptedProfileFor(string(in))
+		chunks, slop := BytesToChunks(buf, blockSize)
+		if len(slop) != 0 {
+			panic("badness")
+		}
+		for _, c := range chunks {
+			savedBlocks = append(savedBlocks, c)
+		}
+	}
+
+	t.Logf("Got %d saved blocks", len(savedBlocks))
+
+	var up UserProfile
+	var err error
+	found := false
+	email := "evil@example.com"
+FINISHED:
+	for i := 0; i < blockSize; i++ {
+		playBuf := C13EncryptedProfileFor(email)
+		playBuf = append(playBuf, pkcsFullPadBlock...)
+		for _, c := range savedBlocks {
+			copy(playBuf[len(playBuf)-2*blockSize:], c)
+			up, err = C13DecryptProfile(playBuf)
+			if err != nil {
+				continue
+			}
+			if up.role == "admin" {
+				found = true
+				break FINISHED
+			}
+		}
+		email = "A" + email
+	}
+
+	if found {
+		t.Logf("<voice>We're in</voice> Got profile: %s", up.Encode())
+	} else {
+		t.Error("Not found :-(")
+	}
+}
+
+var C13FixedKey = RandomKey()
+
+func C13DecryptProfile(buf []byte) (up UserProfile, err error) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			err = fmt.Errorf("PANIC: %v", r)
+		}
+	}()
+	encProfile := AESECBDecrypt(C13FixedKey, buf)
+	up, err = ParseProfile(string(encProfile))
+	if err != nil {
+		return up, fmt.Errorf("Can't parse profile: %w", err)
+	}
+	return up, nil
+}
+
+func C13EncryptedProfileFor(email string) []byte {
+	return AESECBEncrypt(C13FixedKey, []byte(ProfileFor(email)))
+}
+
 func TestS2C12(t *testing.T) {
 	blockSize := FindBlockSize(C12EncryptionOracle)
 	t.Logf("Enc oracle has block size: %d", blockSize)
