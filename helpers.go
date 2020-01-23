@@ -11,6 +11,36 @@ import (
 	"strings"
 )
 
+func NewBytes(n int, fill byte) []byte {
+	buf := make([]byte, n)
+	for i := range buf {
+		buf[i] = fill
+	}
+	return buf
+}
+
+func BytesToChunks(buf []byte, chunkSize int) ([][]byte, []byte) {
+	chunks := make([][]byte, len(buf)/chunkSize)
+	for i := 0; i < len(chunks); i++ {
+		pos := i * chunkSize
+		chunks[i] = buf[pos : pos+chunkSize]
+	}
+	slop := buf[len(chunks)*chunkSize:]
+	return chunks, slop
+}
+
+func BytesEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 type HexStr string
 type B64Str string
 

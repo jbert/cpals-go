@@ -6,6 +6,116 @@ import (
 	"testing"
 )
 
+func TestS2C14(t *testing.T) {
+	//	...as for C12 but we need to loop when biulding the dict so we get blockSize candidates for each byte...
+	blockSize := FindBlockSize(C14EncryptionOracle)
+	t.Logf("Enc oracle has block size: %d", blockSize)
+	isECB := IsECB(C14EncryptionOracle, blockSize)
+	t.Logf("Enc oracle is ECB: %v", isECB)
+
+	blockAfterDuplicates := func(buf []byte, blockSize int) (bool, []byte) {
+		chunks, _ := BytesToChunks(buf, blockSize)
+		var lastChunk []byte
+		lastDup := false
+		for _, c := range chunks {
+			if lastDup {
+				return true, c
+			}
+			if lastChunk != nil {
+				if BytesEqual(lastChunk, c) {
+					lastDup = true
+				}
+			}
+			lastChunk = c
+		}
+		return false, nil
+	}
+
+	makeDict := func(targetBlock []byte) map[string]byte {
+		blockDict := make(map[string]byte)
+		workBlock := make([]byte, len(targetBlock)+1)
+		copy(workBlock, targetBlock)
+		for b := 0; b <= 0xff; b++ {
+		FIND_DUP:
+			for {
+				workBlock[len(workBlock)-1] = byte(b)
+
+				// Prefix work block with 2 identical blocks
+				// We know if we get identical blocks in output, we were aligned
+				chosenMsg := NewBytes(2*blockSize, 'A')
+				chosenMsg = append(chosenMsg, workBlock...)
+				buf := C14EncryptionOracle(chosenMsg)
+
+				// If we t have duplicates, we want
+				hasDuplicate, blockAfter := blockAfterDuplicates(buf, blockSize)
+				if hasDuplicate {
+					blockDict[string(blockAfter)] = byte(b)
+					break FIND_DUP
+				}
+			}
+		}
+		return blockDict
+	}
+
+	knownMsg := []byte{}
+NEXT_CHARACTER:
+	for {
+		lenPadding := ((blockSize - 1) - len(knownMsg)) % blockSize
+		if lenPadding < 0 {
+			lenPadding += blockSize
+		}
+		padChunk := make([]byte, lenPadding)
+
+		// Loop until we see duplicate blocks
+		var buf []byte
+		chosenMsg := NewBytes(2*blockSize, 'A')
+		chosenMsg = append(chosenMsg, padChunk...)
+	TRY_ALIGNMENT:
+		for {
+			buf = C14EncryptionOracle(chosenMsg)
+			if HasDuplicateBlocks(buf, blockSize) {
+				break TRY_ALIGNMENT
+			}
+		}
+
+		// We want last blockSize-1 bytes of knownMsg
+		targetBlock := make([]byte, blockSize-1)
+		offset := len(knownMsg) - (blockSize - 1)
+		if offset < 0 {
+			copy(targetBlock[-offset:], knownMsg)
+		} else {
+			copy(targetBlock, knownMsg[len(knownMsg)-(blockSize-1):])
+		}
+
+		blockDict := makeDict(targetBlock)
+
+		chunks, slop := BytesToChunks(buf, blockSize)
+		if len(slop) != 0 {
+			panic(fmt.Sprintf("wtf - found slop %v", slop))
+		}
+
+		for _, chunk := range chunks {
+			b, ok := blockDict[string(chunk)]
+			if ok {
+				knownMsg = append(knownMsg, b)
+				t.Logf("MSG: %s\n", string(knownMsg))
+				continue NEXT_CHARACTER
+			}
+		}
+		break NEXT_CHARACTER
+	}
+	t.Logf("MSG: %s\n", string(knownMsg))
+}
+
+func C14EncryptionOracle(msg []byte) []byte {
+	prefix := RandomRandomBytes(10, 20)
+	msg = append(prefix, msg...)
+	//	fmt.Printf("prefix %d msg len %d mod %d\n", len(prefix), len(msg), len(msg)%16)
+	buf := C12EncryptionOracle(msg)
+	//	fmt.Printf("P %4d: %s\nC %4d: %s\n", len(msg), EnHex(msg), len(buf), EnHex(buf))
+	return buf
+}
+
 func TestS2C13(t *testing.T) {
 	// Want to switch out a block 'userPADDING' with 'admin&'
 	// have an email ending in 'admin', so get a sep at end

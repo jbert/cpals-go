@@ -73,18 +73,6 @@ func Xor(a, b []byte) ([]byte, error) {
 	return ret, nil
 }
 
-func BytesEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func SolveEnglishSingleByteXor(ctxt []byte) ([]byte, float64, byte) {
 	var bestB byte
 	bestScore := 0.0
@@ -194,16 +182,6 @@ func HammingDistance(a, b []byte) (int, error) {
 func byteHammingDist(a, b byte) int {
 	x := a ^ b
 	return bits.OnesCount8(x)
-}
-
-func BytesToChunks(buf []byte, chunkSize int) ([][]byte, []byte) {
-	chunks := make([][]byte, len(buf)/chunkSize)
-	for i := 0; i < len(chunks); i++ {
-		pos := i * chunkSize
-		chunks[i] = buf[pos : pos+chunkSize]
-	}
-	slop := buf[len(chunks)*chunkSize:]
-	return chunks, slop
 }
 
 func GuessXorKeySize(buf []byte) []int {
