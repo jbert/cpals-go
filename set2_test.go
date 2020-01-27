@@ -42,7 +42,8 @@ func TestS2C14(t *testing.T) {
 
 				// Prefix work block with 2 identical blocks
 				// We know if we get identical blocks in output, we were aligned
-				chosenMsg := NewBytes(2*blockSize, 'A')
+				chosenMsg := NewBytes(blockSize, 'B')
+				chosenMsg = append(chosenMsg, NewBytes(2*blockSize, 'A')...)
 				chosenMsg = append(chosenMsg, workBlock...)
 				buf := C14EncryptionOracle(chosenMsg)
 
@@ -68,7 +69,8 @@ NEXT_CHARACTER:
 
 		// Loop until we see duplicate blocks
 		var buf []byte
-		chosenMsg := NewBytes(2*blockSize, 'A')
+		chosenMsg := NewBytes(blockSize, 'B')
+		chosenMsg = append(chosenMsg, NewBytes(2*blockSize, 'A')...)
 		chosenMsg = append(chosenMsg, padChunk...)
 	TRY_ALIGNMENT:
 		for {
@@ -98,7 +100,7 @@ NEXT_CHARACTER:
 			b, ok := blockDict[string(chunk)]
 			if ok {
 				knownMsg = append(knownMsg, b)
-				t.Logf("MSG: %s\n", string(knownMsg))
+				//				t.Logf("%d MSG: %s\n", len(knownMsg), string(knownMsg))
 				continue NEXT_CHARACTER
 			}
 		}
