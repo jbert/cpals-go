@@ -1,10 +1,71 @@
 package cpals
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
+	"strings"
 	"testing"
 )
+
+func TestS2C16(t *testing.T) {
+	// Turn a panic into an error
+	decryptor := func(buf []byte) (isAdmin bool, err error) {
+		defer func() {
+			r := recover()
+			if r != nil {
+				err = r.(error)
+			}
+		}()
+		isAdmin = C16Decode(buf)
+		return
+	}
+
+	naiveAttempt := []byte(";admin=true;")
+	buf := C16Encode(naiveAttempt)
+	isAdmin, err := decryptor(buf)
+	if err != nil {
+		t.Fatalf("Got error decrypting legit msg: %s", err)
+	}
+	if isAdmin {
+		t.Fatalf("Got admin with naive userdata")
+	}
+	isAdmin, err = decryptor([]byte{1, 2, 3, 4})
+	if err != nil {
+		t.Fatalf("Didn't get error for bad padding")
+	}
+
+	blockSize := FindBlockSize(C16Encode)
+	t.Logf("Blocksize is %d", blockSize)
+
+	/*
+		var offset int
+		for i := 0; i < blockSize; i++ {
+		}
+		desired := []byte(";admin=true;")
+		buf = C16Encode(make([]byte, 2*blockSize))
+		for {
+			chosenMsg := make([]byte, 2*blockSize)
+		}
+	*/
+
+}
+
+var C16FixedKey = RandomKey()
+
+func C16Decode(buf []byte) bool {
+	msg := AESCBCDecrypt(C16FixedKey, ZeroIV, buf)
+	return strings.Contains(string(msg), ";admin=true;")
+}
+
+func C16Encode(userData []byte) []byte {
+	userData = bytes.ReplaceAll(userData, []byte(";"), []byte("%3B"))
+	userData = bytes.ReplaceAll(userData, []byte("="), []byte("%3D"))
+	msg := []byte("comment1=cooking%20MCs;userdata=")
+	msg = append(msg, userData...)
+	msg = append(msg, []byte(";comment2=%20like%20a%20pound%20of%20bacon")...)
+	return AESCBCEncrypt(C16FixedKey, ZeroIV, []byte(msg))
+}
 
 func TestS2C15(t *testing.T) {
 	testCases := []struct {
