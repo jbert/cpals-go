@@ -6,6 +6,25 @@ import (
 	"testing"
 )
 
+func TestS2C15(t *testing.T) {
+	testCases := []struct {
+		in   string
+		good bool
+	}{
+		{"ICE ICE BABY\x04\x04\x04\x04", true},
+		{"ICE ICE BABY\x05\x05\x05\x05", false},
+		{"ICE ICE BABY\x01\x02\x03\x04", false},
+	}
+
+	for _, tc := range testCases {
+		_, err := BytesPKCS7UnPad([]byte(tc.in))
+		if err == nil != tc.good {
+			t.Errorf("Failed: %s got err %s", tc.in, err)
+		}
+	}
+	t.Logf("PKCS7 unpad shows correct errors")
+}
+
 func TestS2C14(t *testing.T) {
 	//	...as for C12 but we need to loop when biulding the dict so we get blockSize candidates for each byte...
 	blockSize := FindBlockSize(C14EncryptionOracle)
