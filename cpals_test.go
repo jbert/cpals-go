@@ -72,6 +72,27 @@ func TestPKCSPadding(t *testing.T) {
 			t.Fatalf("Pad+unpad broke msg")
 		}
 	}
+
+	buf, err := BytesPKCS7UnPad(NewBytes(16, 16))
+	if err != nil {
+		t.Fatalf("Can't unpad zero buf: %s", err)
+	}
+	if len(buf) != 0 {
+		t.Fatalf("Didn't get zero buf on unpad")
+	}
+
+	_, err = BytesPKCS7UnPad([]byte{0x00})
+	if err == nil {
+		t.Fatalf("Didn't error on zero pad byte")
+	}
+	t.Logf("Zero pad byte errored ok: %s", err)
+
+	_, err = BytesPKCS7UnPad([]byte{1, 2, 3, 4})
+	if err == nil {
+		t.Fatalf("Didn't error on 1,2,3,4")
+	}
+	t.Logf("1,2,3,4 pad byte errored ok: %s", err)
+
 }
 
 func TestAESECB(t *testing.T) {

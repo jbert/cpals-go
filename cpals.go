@@ -347,6 +347,9 @@ func BytesPKCS7UnPad(buf []byte) ([]byte, error) {
 	if padVal > len(buf) {
 		return nil, fmt.Errorf("Pad byte too large %d > %d", padVal, len(buf))
 	}
+	if padVal == 0 {
+		return nil, fmt.Errorf("Zero pad byte")
+	}
 	for i := 0; i < padVal; i++ {
 		if buf[len(buf)-1-i] != byte(padVal) {
 			return nil, fmt.Errorf("Invalid pad byte %d from end: %d != %d", i, buf[len(buf)-i-1], padVal)
