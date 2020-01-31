@@ -2,6 +2,7 @@ package cpals
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -14,7 +15,7 @@ func TestS2C16(t *testing.T) {
 		defer func() {
 			r := recover()
 			if r != nil {
-				err = r.(error)
+				err = errors.New(r.(string))
 			}
 		}()
 		isAdmin = C16Decode(buf)
