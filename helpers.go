@@ -29,6 +29,16 @@ func BytesToChunks(buf []byte, chunkSize int) ([][]byte, []byte) {
 	return chunks, slop
 }
 
+func BytesHexBlocks(buf []byte, blockSize int) string {
+	chunks, slop := BytesToChunks(buf, blockSize)
+	ss := []string{}
+	for _, c := range chunks {
+		ss = append(ss, string(EnHex(c)))
+	}
+	ss = append(ss, string(EnHex(slop)))
+	return strings.Join(ss, " ")
+}
+
 func BytesEqual(a, b []byte) bool {
 	if len(a) != len(b) {
 		return false
