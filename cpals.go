@@ -469,17 +469,6 @@ func RandomKey() []byte {
 	return RandomBytes(len(YellowKey))
 }
 
-func IsECB(blockCryptor func(buf []byte) []byte, blockSize int) bool {
-	in := make([]byte, blockSize*16)
-	buf := blockCryptor(in)
-	return HasDuplicateBlocks(buf, blockSize)
-}
-
-func FindBlockSize(blockCryptor func(buf []byte) []byte) int {
-	blockSize, _ := FindBlockSizeAndFullPadBlock(blockCryptor)
-	return blockSize
-}
-
 func FindBlockSizeAndFullPadBlock(blockCryptor func(buf []byte) []byte) (int, []byte) {
 	lastLen := 0
 	maxBlockSize := 1024

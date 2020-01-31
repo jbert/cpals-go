@@ -21,6 +21,8 @@ func TestS2C16(t *testing.T) {
 		return
 	}
 
+	C16Encode := Oracle(C16EncodeFunc)
+
 	naiveAttempt := []byte(";admin=true;")
 	buf := C16Encode(naiveAttempt)
 	isAdmin, err := decryptor(buf)
@@ -35,7 +37,7 @@ func TestS2C16(t *testing.T) {
 		t.Fatalf("Didn't get error for bad padding")
 	}
 
-	blockSize := FindBlockSize(C16Encode)
+	blockSize := C16Encode.FindBlockSize()
 	t.Logf("Blocksize is %d", blockSize)
 
 	/*
@@ -58,7 +60,7 @@ func C16Decode(buf []byte) bool {
 	return strings.Contains(string(msg), ";admin=true;")
 }
 
-func C16Encode(userData []byte) []byte {
+func C16EncodeFunc(userData []byte) []byte {
 	userData = bytes.ReplaceAll(userData, []byte(";"), []byte("%3B"))
 	userData = bytes.ReplaceAll(userData, []byte("="), []byte("%3D"))
 	msg := []byte("comment1=cooking%20MCs;userdata=")
@@ -88,9 +90,11 @@ func TestS2C15(t *testing.T) {
 
 func TestS2C14(t *testing.T) {
 	//	...as for C12 but we need to loop when biulding the dict so we get blockSize candidates for each byte...
-	blockSize := FindBlockSize(C14EncryptionOracle)
+	C14EncryptionOracle := Oracle(C14EncryptionOracleFunc)
+
+	blockSize := C14EncryptionOracle.FindBlockSize()
 	t.Logf("Enc oracle has block size: %d", blockSize)
-	isECB := IsECB(C14EncryptionOracle, blockSize)
+	isECB := C14EncryptionOracle.IsECB(blockSize)
 	t.Logf("Enc oracle is ECB: %v", isECB)
 
 	blockAfterDuplicates := func(buf []byte, blockSize int) (bool, []byte) {
@@ -189,11 +193,11 @@ NEXT_CHARACTER:
 	t.Logf("MSG: %s\n", string(knownMsg))
 }
 
-func C14EncryptionOracle(msg []byte) []byte {
+func C14EncryptionOracleFunc(msg []byte) []byte {
 	prefix := RandomRandomBytes(10, 20)
 	msg = append(prefix, msg...)
 	//	fmt.Printf("prefix %d msg len %d mod %d\n", len(prefix), len(msg), len(msg)%16)
-	buf := C12EncryptionOracle(msg)
+	buf := C12EncryptionOracleFunc(msg)
 	//	fmt.Printf("P %4d: %s\nC %4d: %s\n", len(msg), EnHex(msg), len(buf), EnHex(buf))
 	return buf
 }
@@ -278,9 +282,10 @@ func C13EncryptedProfileFor(email string) []byte {
 }
 
 func TestS2C12(t *testing.T) {
-	blockSize := FindBlockSize(C12EncryptionOracle)
+	C12EncryptionOracle := Oracle(C12EncryptionOracleFunc)
+	blockSize := C12EncryptionOracle.FindBlockSize()
 	t.Logf("Enc oracle has block size: %d", blockSize)
-	isECB := IsECB(C12EncryptionOracle, blockSize)
+	isECB := C12EncryptionOracle.IsECB(blockSize)
 	t.Logf("Enc oracle is ECB: %v", isECB)
 
 	makeDict := func(targetBlock []byte) map[string]byte {
@@ -337,7 +342,7 @@ NEXT_CHARACTER:
 
 var C12FixedKey = RandomKey()
 
-func C12EncryptionOracle(msg []byte) []byte {
+func C12EncryptionOracleFunc(msg []byte) []byte {
 	secret, err := DeBase64(`
 Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg
 aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq
