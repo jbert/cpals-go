@@ -30,28 +30,112 @@ func TestS2C16(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got error decrypting legit msg: %s", err)
 	}
+	t.Log("Can encrypt naive attempt")
 	if isAdmin {
 		t.Fatalf("Got admin with naive userdata")
 	}
+	t.Log("Didn't get admin with naive attempt")
 	isAdmin, err = decryptor([]byte{1, 2, 3, 4})
-	if err != nil {
+	if err == nil {
 		t.Fatalf("Didn't get error for bad padding")
 	}
+	t.Log("Got error return for bad padding")
 
 	blockSize := C16Encode.FindBlockSize()
 	t.Logf("Blocksize is %d", blockSize)
 
 	/*
-		var offset int
+		// How much padding do we add to spill to a block?
+		var paddingOffset int
+		lastLen := 0
 		for i := 0; i < blockSize; i++ {
+			buf = C16Encode(make([]byte, i))
+			if lastLen != 0 && len(buf) != lastLen {
+				paddingOffset = i
+			}
+			lastLen = len(buf)
 		}
-		desired := []byte(";admin=true;")
-		buf = C16Encode(make([]byte, 2*blockSize))
-		for {
-			chosenMsg := make([]byte, 2*blockSize)
-		}
-	*/
+		if paddingOffset == 0 {
+			t.Fatalf("Can't find padding offset")
 
+		}
+		t.Logf("Padding offset: %d", paddingOffset)
+	*/
+	// There is a bit pattern which, when put into the first of these
+	// two blocks, will put the desired string into the second block
+
+	// So for each byte of the first block, we find which value will put a zero
+	// into the second block
+
+	// We can do this because we know when the relevant padding byte is correct
+
+	attackBlock := make([]byte, blockSize)
+	decodeMsg := func(desiredMsg []byte) (bool, error) {
+
+		// Get a ciphertext of at least two blocks
+		twoBlockBuf := C16Encode(NewBytes(2*blockSize, 0))
+
+		// Replace the first block with our attack block, XORd with the desired message
+		// This will XORd with our desired message with the following block
+		desired := make([]byte, blockSize)
+		copy(desired, desiredMsg)
+		desired, err = Xor(desired, attackBlock)
+		if err != nil {
+			panic("Can't XOR same size bufs?")
+		}
+		copy(twoBlockBuf, desired)
+
+		// And we make the following block zeros, so XORing with our msg gives our msg
+		copy(twoBlockBuf[blockSize:], make([]byte, blockSize))
+
+		return decryptor(twoBlockBuf)
+	}
+
+POSITION:
+	for i := blockSize - 1; i >= 0; i-- {
+
+		// This is the byte we will find for good padding at this position
+		paddingByte := blockSize - i
+
+		// Set up the trial block with bit patterns to create the padding we want
+		// apart from the current byte
+		trialBlock := make([]byte, blockSize)
+		copy(trialBlock, attackBlock)
+		for j := blockSize - 1; j > i; j-- {
+			trialBlock[j] = attackBlock[j] ^ byte(paddingByte)
+		}
+
+		// Try each byte in position
+		for b := 0; b < 256; b++ {
+			trialBlock[i] = byte(b)
+			trial := make([]byte, 2*blockSize)
+			copy(trial, trialBlock)
+
+			//			t.Logf("TRIAL: %s", BytesHexBlocks(trial, blockSize))
+			_, err = decryptor(trial)
+			if err == nil {
+				t.Logf("Found %02X for pos %d\n", b, i)
+				// We have good padding
+				attackBlock[i] = byte(b) ^ byte(paddingByte)
+				decodeMsg(NewBytes(blockSize, 0))
+				continue POSITION
+			}
+		}
+		t.Fatalf("Can't find byte for position %d", i)
+
+	}
+
+	t.Logf("About to decrypt target")
+	isAdmin, err = decodeMsg([]byte(";admin=true;"))
+	if err != nil {
+		t.Fatalf("Error on the descrypt: %s", err)
+	} else {
+		if isAdmin {
+			t.Logf("Woo! Got admin")
+		} else {
+			t.Fatalf("I don't wna to live in this world any more")
+		}
+	}
 }
 
 var C16FixedKey = RandomKey()
