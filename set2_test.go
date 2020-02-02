@@ -69,7 +69,7 @@ func TestS2C16(t *testing.T) {
 
 	// We can do this because we know when the relevant padding byte is correct
 
-	attackBlock := make([]byte, blockSize)
+	var attackBlock []byte
 	decodeMsg := func(desiredMsg []byte) (bool, error) {
 
 		// Get a ciphertext of at least two blocks
@@ -91,38 +91,13 @@ func TestS2C16(t *testing.T) {
 		return decryptor(twoBlockBuf)
 	}
 
-POSITION:
-	for i := blockSize - 1; i >= 0; i-- {
-
-		// This is the byte we will find for good padding at this position
-		paddingByte := blockSize - i
-
-		// Set up the trial block with bit patterns to create the padding we want
-		// apart from the current byte
-		trialBlock := make([]byte, blockSize)
-		copy(trialBlock, attackBlock)
-		for j := blockSize - 1; j > i; j-- {
-			trialBlock[j] = attackBlock[j] ^ byte(paddingByte)
-		}
-
-		// Try each byte in position
-		for b := 0; b < 256; b++ {
-			trialBlock[i] = byte(b)
-			trial := make([]byte, 2*blockSize)
-			copy(trial, trialBlock)
-
-			//			t.Logf("TRIAL: %s", BytesHexBlocks(trial, blockSize))
-			_, err = decryptor(trial)
-			if err == nil {
-				t.Logf("Found %02X for pos %d\n", b, i)
-				// We have good padding
-				attackBlock[i] = byte(b) ^ byte(paddingByte)
-				decodeMsg(NewBytes(blockSize, 0))
-				continue POSITION
-			}
-		}
-		t.Fatalf("Can't find byte for position %d", i)
-
+	padOracle := PaddingOracle(func(buf []byte) bool {
+		_, err = decryptor(buf)
+		return err == nil
+	})
+	attackBlock, err = padOracle.AttackBlock(make([]byte, blockSize))
+	if err != nil {
+		t.Fatalf("Can't construct attack block: %s", err)
 	}
 
 	t.Logf("About to decrypt target")
