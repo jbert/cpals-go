@@ -91,11 +91,14 @@ func TestS2C16(t *testing.T) {
 		return decryptor(twoBlockBuf)
 	}
 
-	padOracle := PaddingOracle(func(buf []byte) bool {
+	padOracle := PaddingOracle(func(iv, block []byte) bool {
+		buf := make([]byte, 2*blockSize)
+		copy(buf, iv)
+		copy(buf[blockSize:], block)
 		_, err = decryptor(buf)
 		return err == nil
 	})
-	attackBlock, err = padOracle.AttackBlock(make([]byte, blockSize))
+	attackBlock, err = padOracle.AttackBlock(ZeroIV, make([]byte, blockSize))
 	if err != nil {
 		t.Fatalf("Can't construct attack block: %s", err)
 	}

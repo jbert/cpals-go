@@ -15,9 +15,11 @@ func (oracle Oracle) IsECB(blockSize int) bool {
 	return HasDuplicateBlocks(buf, blockSize)
 }
 
-type PaddingOracle func([]byte) bool
+type PaddingOracle func(iv []byte, buf []byte) bool
 
-func (po PaddingOracle) AttackBlock(buf []byte) ([]byte, error) {
+// AttackBlock calculates what needs to be XORd with the IV to zero
+// the cipher block
+func (po PaddingOracle) AttackBlock(iv []byte, buf []byte) ([]byte, error) {
 	blockSize := len(buf)
 	attackBlock := make([]byte, blockSize)
 
@@ -34,19 +36,25 @@ POSITION:
 		for j := blockSize - 1; j > i; j-- {
 			trialBlock[j] = attackBlock[j] ^ byte(paddingByte)
 		}
+		trialBlock, err := Xor(trialBlock, iv)
+		if err != nil {
+			panic("wtf?")
+		}
 
 		// Try each byte in position
 		for b := 0; b < 256; b++ {
-			trialBlock[i] = byte(b)
-			trial := make([]byte, 2*blockSize)
-			copy(trial, trialBlock)
+			trialBlock[i] ^= byte(b)
 
-			paddingGood := po(trial)
+			//			fmt.Printf("TRY: %s\n", BytesHexBlocks(trialBlock, blockSize))
+			paddingGood := po(trialBlock, buf)
 			if paddingGood {
-				//				t.Logf("Found %02X for pos %d\n", b, i)
+				//				fmt.Printf("Found %02X for pos %d\n", b, i)
 				attackBlock[i] = byte(b) ^ byte(paddingByte)
 				continue POSITION
 			}
+
+			// Remove it again
+			trialBlock[i] ^= byte(b)
 		}
 		return nil, fmt.Errorf("Can't find byte for position %d", i)
 
