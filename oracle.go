@@ -47,13 +47,26 @@ POSITION:
 
 			//			fmt.Printf("TRY: %s\n", BytesHexBlocks(trialBlock, blockSize))
 			paddingGood := po(trialBlock, buf)
-			if paddingGood {
-				//				fmt.Printf("Found %02X for pos %d\n", b, i)
-				attackBlock[i] = byte(b) ^ byte(paddingByte)
-				continue POSITION
-			}
 
-			// Remove it again
+			if paddingGood {
+				// Could be a false positive. If scrambling the next byte is also
+				// OK then it isn't
+				if i > 0 {
+					//					fmt.Printf("Possible %02X for pos %d\n", b, i)
+					trialBlock[i-1] ^= 0x01
+					paddingGood = po(trialBlock, buf)
+					// Remove changes
+					trialBlock[i-1] ^= 0x01
+				}
+
+				if paddingGood {
+					//					fmt.Printf("Found %02X for pos %d\n", b, i)
+					attackBlock[i] = byte(b) ^ byte(paddingByte)
+					//					fmt.Printf("AB : %s\n", BytesHexBlocks(attackBlock, blockSize))
+					trialBlock[i] ^= byte(b)
+					continue POSITION
+				}
+			}
 			trialBlock[i] ^= byte(b)
 		}
 		return nil, fmt.Errorf("Can't find byte for position %d", i)

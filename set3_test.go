@@ -3,34 +3,58 @@ package cpals
 import (
 	"bytes"
 	"math/rand"
+	"sort"
 	"testing"
 )
 
 func TestS3C17(t *testing.T) {
+	found := make(map[string]bool)
+
 	blockSize := 16
-	buf, iv := C17Encrypt()
-	chunks, slop := BytesToChunks(buf, blockSize)
-	if len(slop) != 0 {
-		t.Fatalf("Slop from CBC !!?")
-	}
 
-	po := PaddingOracle(func(iv, buf []byte) bool {
-		return C17PaddingGood(iv, buf)
-	})
-	var plainChunks [][]byte
-	loopIV := iv
-	for i, c := range chunks {
-		plainChunk, err := po.AttackBlock(loopIV, c)
-		if err != nil {
-			t.Fatalf("Can't attack chunk %d: %s", i, err)
+	loopsWithoutFindingNew := 0
+	for loopsWithoutFindingNew < 100 {
+		buf, iv := C17Encrypt()
+		chunks, slop := BytesToChunks(buf, blockSize)
+		if len(slop) != 0 {
+			t.Fatalf("Slop from CBC !!?")
 		}
-		t.Logf("Got chunk: %s\n", plainChunk)
-		plainChunks = append(plainChunks, plainChunk)
-		loopIV = c
-	}
-	t.Logf("MSG: %s\n", bytes.Join(plainChunks, []byte{}))
 
-	t.Logf("TODO - find the other texts")
+		po := PaddingOracle(func(iv, buf []byte) bool {
+			return C17PaddingGood(iv, buf)
+		})
+		var plainChunks [][]byte
+		loopIV := iv
+		for i, c := range chunks {
+			plainChunk, err := po.AttackBlock(loopIV, c)
+			if err != nil {
+				t.Fatalf("Can't attack chunk %d: %s", i, err)
+			}
+			//			t.Logf("Got chunk: %s\n", plainChunk)
+			plainChunks = append(plainChunks, plainChunk)
+			loopIV = c
+		}
+		s := string(bytes.Join(plainChunks, []byte{}))
+
+		if _, ok := found[s]; !ok {
+			//			t.Logf("MSG: %s\n", s)
+			loopsWithoutFindingNew = 0
+			found[s] = true
+		} else {
+			loopsWithoutFindingNew++
+		}
+	}
+
+	var msgs []string
+	for k, _ := range found {
+		msgs = append(msgs, k)
+	}
+	sort.Strings(msgs)
+
+	t.Logf("-----------")
+	for _, s := range msgs {
+		t.Logf("%s\n", s)
+	}
 }
 
 var C17FixedKey = RandomKey()
