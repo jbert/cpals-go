@@ -7,6 +7,13 @@ import (
 	"testing"
 )
 
+func TestS3C18(t *testing.T) {
+	buf, _ := DeBase64("L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ==")
+	nonce := int64(0)
+	msg := AESCTR(YellowKey, nonce, buf)
+	t.Logf("MSG: %s\n", msg)
+}
+
 func TestS3C17(t *testing.T) {
 	found := make(map[string]bool)
 

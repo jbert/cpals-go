@@ -1,8 +1,10 @@
 package cpals // import "github.com/jbert/cpals-go
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/bits"
@@ -551,4 +553,29 @@ func ParseProfile(s string) (UserProfile, error) {
 		return up, errors.New("no role")
 	}
 	return up, nil
+}
+
+func AESCTRKeyStream(key []byte, nonce int64, bufLen int) []byte {
+	ret := make([]byte, bufLen)
+	blockCount := int64(0)
+	for i := 0; i < bufLen; i += len(key) {
+		w := &bytes.Buffer{}
+		//		fmt.Printf("i %d blockCount %d\n", i, blockCount)
+		binary.Write(w, binary.LittleEndian, nonce)
+		binary.Write(w, binary.LittleEndian, blockCount)
+		//		fmt.Printf("AES: %s\n", EnHex(w.Bytes()))
+		buf := AESECBEncrypt(key, w.Bytes())
+		copy(ret[i:], buf) // If ret is short of space, only copies needed
+		blockCount++
+	}
+	return ret
+}
+
+func AESCTR(key []byte, nonce int64, in []byte) []byte {
+	keystream := AESCTRKeyStream(key, nonce, len(in))
+	buf, err := Xor(in, keystream)
+	if err != nil {
+		panic(fmt.Sprintf("Internal error AESCTR Xor : %s", err))
+	}
+	return buf
 }
