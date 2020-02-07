@@ -7,44 +7,30 @@ import (
 	"testing"
 )
 
-func TestS3C19(t *testing.T) {
-	ctxts := C19LoadMsgs(t)
-	t.Logf("Loaded %d ctxts", len(ctxts))
-
-	maxLen := 0
-	for _, ct := range ctxts {
-		if len(ct) > maxLen {
-			maxLen = len(ct)
-		}
+func TestS3C21(t *testing.T) {
+	expected := []uint{
+		2357136044,
+		2546248239,
+		3071714933,
+		3626093760,
+		2588848963,
+		3684848379,
+		2340255427,
+		3638918503,
+		1819583497,
+		2678185683,
 	}
 
-	keyStream := make([]byte, maxLen)
-
-	// We wnat to guess the keystream (then use it to XOR-decrypt)
-
-	// A number of things to try:
-	// - ASCII ^ ASCII has bit7 zero (so can get high bit of all KS bytes)
-	// - for each pos, run english score
-
-	for i := 0; i < maxLen; i++ {
-		var msg []byte
-		for _, ct := range ctxts {
-			if len(ct) > i {
-				msg = append(msg, ct[i])
-			}
+	mt := NewMT()
+	mt.Init(0)
+	for i := 0; i < 10; i++ {
+		n := mt.ExtractNumber()
+		if n != expected[i] {
+			t.Fatalf("Wrong value for %d: got %d expected %d", i, n, expected[i])
 		}
-
-		var bestScore float64
-		var bestB byte
-		for b := 0; b < 256; b++ {
-			score := EnglishScore(XorByte(msg, byte(b)))
-			if score > bestScore {
-				bestScore = score
-				bestB = byte(b)
-			}
-		}
-		keyStream[i] = bestB
+		t.Logf("%d: N %d\n", i, n)
 	}
+}
 
 func TestS3C20(t *testing.T) {
 	lines, err := LoadLines("20.txt")
