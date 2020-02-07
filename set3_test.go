@@ -46,18 +46,20 @@ func TestS3C19(t *testing.T) {
 		keyStream[i] = bestB
 	}
 
-	for i, ct := range ctxts {
-		msg, err := Xor(ct, keyStream[:len(ct)])
-		if err != nil {
-			panic("whoops")
-		}
-		t.Logf("%d: %s\n", i, msg)
+func TestS3C20(t *testing.T) {
+	lines, err := LoadLines("20.txt")
+	if err != nil {
+		t.Fatalf("Can't load lines: %s", err)
 	}
-
-	t.Logf("DONE!")
+	var b64str []B64Str
+	for _, l := range lines {
+		b64str = append(b64str, B64Str(l))
+	}
+	ctxts := C19CryptMsgs(t, b64str)
+	attackRepeatedNonce(t, ctxts)
 }
 
-func C19LoadMsgs(t *testing.T) [][]byte {
+func TestS3C19(t *testing.T) {
 	b64msgs := []B64Str{
 		"SSBoYXZlIG1ldCB0aGVtIGF0IGNsb3NlIG9mIGRheQ==",
 		"Q29taW5nIHdpdGggdml2aWQgZmFjZXM=",
@@ -101,6 +103,61 @@ func C19LoadMsgs(t *testing.T) [][]byte {
 		"QSB0ZXJyaWJsZSBiZWF1dHkgaXMgYm9ybi4=",
 	}
 
+	ctxts := C19CryptMsgs(t, b64msgs)
+	t.Logf("Loaded %d ctxts", len(ctxts))
+
+	attackRepeatedNonce(t, ctxts)
+}
+
+func attackRepeatedNonce(t *testing.T, ctxts [][]byte) {
+
+	maxLen := 0
+	for _, ct := range ctxts {
+		if len(ct) > maxLen {
+			maxLen = len(ct)
+		}
+	}
+
+	keyStream := make([]byte, maxLen)
+
+	// We wnat to guess the keystream (then use it to XOR-decrypt)
+
+	// A number of things to try:
+	// - ASCII ^ ASCII has bit7 zero (so can get high bit of all KS bytes)
+	// - for each pos, run english score
+
+	for i := 0; i < maxLen; i++ {
+		var msg []byte
+		for _, ct := range ctxts {
+			if len(ct) > i {
+				msg = append(msg, ct[i])
+			}
+		}
+
+		var bestScore float64
+		var bestB byte
+		for b := 0; b < 256; b++ {
+			score := EnglishScore(XorByte(msg, byte(b)))
+			if score > bestScore {
+				bestScore = score
+				bestB = byte(b)
+			}
+		}
+		keyStream[i] = bestB
+	}
+
+	for i, ct := range ctxts {
+		msg, err := Xor(ct, keyStream[:len(ct)])
+		if err != nil {
+			panic("whoops")
+		}
+		t.Logf("%d: %s\n", i, msg)
+	}
+
+	t.Logf("DONE!")
+}
+
+func C19CryptMsgs(t *testing.T, b64msgs []B64Str) [][]byte {
 	key := RandomKey()
 	nonce := int64(0)
 
