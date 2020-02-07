@@ -66,14 +66,28 @@ func (mt *MT) ExtractNumber() uint {
 	//        y = self.lshift(y, self.t, self.c)
 	//        y = self.rshift(y, self.L, 0xffffffff)
 
-	y := mt.x[mt.index]
-	y = y ^ ((y >> mt.u) & mt.d)
-	y = y ^ ((y << mt.s) & mt.b)
-	y = y ^ ((y << mt.t) & mt.c)
-	y = y ^ (y >> mt.l)
-
+	y := mt.temper(mt.x[mt.index])
 	mt.index++
 	return y
+}
+
+func (mt *MT) temper(y uint) uint {
+	y = rshiftMask(y, mt.u, mt.d)
+	y = lshiftMask(y, mt.s, mt.b)
+	y = lshiftMask(y, mt.t, mt.c)
+	y = rshiftMask(y, mt.l, 0xFFFFFFFF)
+	//	y = y ^ ((y << mt.s) & mt.b)
+	//	y = y ^ ((y << mt.t) & mt.c)
+	//	y = y ^ (y >> mt.l)
+	return y
+}
+
+func lshiftMask(y uint, bits uint, mask uint) uint {
+	return y ^ ((y << bits) & mask)
+}
+
+func rshiftMask(y uint, bits uint, mask uint) uint {
+	return y ^ ((y >> bits) & mask)
 }
 
 func (mt *MT) twist() {
