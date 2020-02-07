@@ -2,10 +2,61 @@ package cpals
 
 import (
 	"bytes"
+	"errors"
 	"math/rand"
 	"sort"
 	"testing"
+	"time"
 )
+
+func TestS3C22(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping sleeping test")
+	}
+	unixNow := time.Now().Unix()
+
+	mt := NewMT()
+
+	randSeconds := rand.Intn(10) + 5
+	t.Logf("Sleeping for %d secs", randSeconds)
+	time.Sleep(time.Second * time.Duration(randSeconds))
+
+	actualSeed := uint(unixNow)
+	mt.Init(actualSeed)
+
+	randSeconds = rand.Intn(10) + 5
+	t.Logf("Sleeping for %d secs", randSeconds)
+	time.Sleep(time.Second * time.Duration(randSeconds))
+
+	val := mt.ExtractNumber()
+
+	guessedSeed, err := C22GuessSeed(val)
+	if err != nil {
+		t.Fatalf("Problem finding: %s", err)
+	}
+	if guessedSeed == actualSeed {
+		t.Logf("Woo! guessed the seed was %d", guessedSeed)
+	} else {
+		t.Fatalf("Your code is bad and you should feel bad. %d != %d", guessedSeed, actualSeed)
+	}
+}
+
+func C22GuessSeed(seenV uint) (uint, error) {
+	unixNow := uint(time.Now().Unix())
+	for i := 0; i < 1000; i++ {
+		trySeed := unixNow - uint(i)
+		mt := NewMT()
+		mt.Init(trySeed)
+		for j := 0; j < 100; j++ {
+			v := mt.ExtractNumber()
+			if v == seenV {
+				return trySeed, nil
+			}
+		}
+	}
+
+	return 0, errors.New("Can't find it")
+}
 
 func TestS3C21(t *testing.T) {
 	expected := []uint{
