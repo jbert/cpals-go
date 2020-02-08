@@ -9,6 +9,35 @@ import (
 	"time"
 )
 
+func TestS3C23(t *testing.T) {
+	mt := NewMT()
+	randSeed := uint(rand.Int31())
+	mt.Init(randSeed)
+
+	randNumVals := rand.Intn(1000)
+	for i := 0; i < randNumVals; i++ {
+		_ = mt.ExtractNumber()
+	}
+
+	stateSize := 624
+	observations := make([]uint, stateSize)
+	for i := range observations {
+		observations[i] = mt.ExtractNumber()
+	}
+
+	clone := mt.CloneFromObservations(observations)
+
+	numTests := 100
+	for i := 0; i < numTests; i++ {
+		expected := mt.ExtractNumber()
+		got := clone.ExtractNumber()
+		if got != expected {
+			t.Fatalf("got %d expected %d on try %d", got, expected, i)
+		}
+	}
+	t.Logf("Did it! cloned the rand")
+}
+
 func TestS3C22(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping sleeping test")

@@ -76,18 +76,63 @@ func (mt *MT) temper(y uint) uint {
 	y = lshiftMask(y, mt.s, mt.b)
 	y = lshiftMask(y, mt.t, mt.c)
 	y = rshiftMask(y, mt.l, 0xFFFFFFFF)
-	//	y = y ^ ((y << mt.s) & mt.b)
-	//	y = y ^ ((y << mt.t) & mt.c)
-	//	y = y ^ (y >> mt.l)
 	return y
 }
 
-func lshiftMask(y uint, bits uint, mask uint) uint {
+func lshiftMask(y, bits, mask uint) uint {
 	return y ^ ((y << bits) & mask)
 }
 
-func rshiftMask(y uint, bits uint, mask uint) uint {
+func rshiftMask(y, bits, mask uint) uint {
 	return y ^ ((y >> bits) & mask)
+}
+
+func (mt *MT) CloneFromObservations(obs []uint) *MT {
+	clone := NewMT()
+	clone.Init(0)
+	for i := range obs {
+		clone.x[i] = mt.untemper(obs[i])
+	}
+	return clone
+}
+
+func (mt *MT) untemper(y uint) uint {
+	y = invertRshiftMask(y, mt.l, 0xFFFFFFFF)
+	y = invertLshiftMask(y, mt.t, mt.c)
+	y = invertLshiftMask(y, mt.s, mt.b)
+	y = invertRshiftMask(y, mt.u, mt.d)
+	return y
+}
+
+func invertRshiftMask(y, bits, mask uint) uint {
+	readMask := uint(1 << 31)
+	writeMask := uint(readMask >> bits)
+	for writeMask > 0 {
+		bit := y & readMask
+		if bit != 0 {
+			y = y ^ writeMask&mask
+		}
+
+		readMask = readMask >> 1
+		writeMask = writeMask >> 1
+	}
+	return y
+}
+
+func invertLshiftMask(y, bits, mask uint) uint {
+	readMask := uint(1)
+	writeMask := uint(readMask << bits)
+	for writeMask > 0 {
+		bit := y & readMask
+		if bit != 0 {
+			y = y ^ writeMask&mask
+		}
+
+		readMask = readMask << 1
+		writeMask = writeMask << 1
+		writeMask &= 0xffffffff
+	}
+	return y
 }
 
 func (mt *MT) twist() {
