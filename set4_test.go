@@ -1,10 +1,56 @@
 package cpals
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
 	"testing"
 )
+
+func TestS3C26(t *testing.T) {
+	desired := []byte(";admin=true;")
+	chosenByte := byte('A')
+	chosenPlainText := NewBytes(len(desired), chosenByte)
+	ctxt := C26EncodeFunc(chosenPlainText)
+
+	gotAdmin := false
+POS:
+	for offset := 0; offset < len(ctxt)-len(desired); offset++ {
+		attack := make([]byte, len(ctxt))
+		copy(attack, ctxt)
+		for i := 0; i < len(desired); i++ {
+			attack[offset+i] ^= chosenByte ^ desired[i]
+		}
+		gotAdmin = C26Decode(attack)
+		if gotAdmin {
+			break POS
+		}
+	}
+
+	if gotAdmin {
+		t.Fatalf("Woo hoo! got admin")
+	} else {
+		t.Fatalf("Failed to get admin :-(")
+	}
+
+}
+
+var C26FixedKey = RandomKey()
+var C26FixedNonce = int64(rand.Uint64())
+
+func C26Decode(buf []byte) bool {
+	msg := AESCTR(C26FixedKey, C26FixedNonce, buf)
+	return bytes.Contains(msg, []byte(";admin=true;"))
+}
+
+func C26EncodeFunc(userData []byte) []byte {
+	userData = bytes.ReplaceAll(userData, []byte(";"), []byte("%3B"))
+	userData = bytes.ReplaceAll(userData, []byte("="), []byte("%3D"))
+	msg := []byte("comment1=cooking%20MCs;userdata=")
+	msg = append(msg, userData...)
+	msg = append(msg, []byte(";comment2=%20like%20a%20pound%20of%20bacon")...)
+	return AESCTR(C26FixedKey, C26FixedNonce, []byte(msg))
+}
 
 func TestS3C25(t *testing.T) {
 	buf := MustLoadB64("25.txt")
