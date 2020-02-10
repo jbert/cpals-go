@@ -579,3 +579,28 @@ func AESCTR(key []byte, nonce int64, in []byte) []byte {
 	}
 	return buf
 }
+
+func MTKeyStream(seed uint32, bufLen int) []byte {
+	mt := NewMT()
+	mt.Init(seed)
+	ret := make([]byte, bufLen)
+	for i := 0; i < bufLen; i += 4 {
+		w := &bytes.Buffer{}
+		v := mt.ExtractNumber()
+		err := binary.Write(w, binary.LittleEndian, v)
+		if err != nil {
+			panic(fmt.Sprintf("Can't encode number: %s", err))
+		}
+		copy(ret[i:], w.Bytes()) // If ret is short of space, only copies needed
+	}
+	return ret
+}
+
+func MTStream(seed uint32, in []byte) []byte {
+	keystream := MTKeyStream(seed, len(in))
+	buf, err := Xor(in, keystream)
+	if err != nil {
+		panic(fmt.Sprintf("Internal error AESCTR Xor : %s", err))
+	}
+	return buf
+}

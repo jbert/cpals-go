@@ -1,14 +1,14 @@
 package cpals
 
 type MT struct {
-	x          []uint
-	index      uint
-	w, n, m, r uint
-	a          uint
-	u, d       uint
-	s, b       uint
-	t, c       uint
-	l          uint
+	x          []uint32
+	index      uint32
+	w, n, m, r uint32
+	a          uint32
+	u, d       uint32
+	s, b       uint32
+	t, c       uint32
+	l          uint32
 }
 
 func NewMT() *MT {
@@ -32,14 +32,14 @@ func NewMT() *MT {
 
 	mt.l = 18
 
-	mt.x = make([]uint, mt.n)
+	mt.x = make([]uint32, mt.n)
 	mt.index = mt.n + 1
 
 	return &mt
 }
 
-func (mt *MT) Init(seed uint) {
-	f := uint(1812433253)
+func (mt *MT) Init(seed uint32) {
+	f := uint32(1812433253)
 	mt.index = mt.n
 
 	for ii := range mt.x {
@@ -47,12 +47,12 @@ func (mt *MT) Init(seed uint) {
 			mt.x[0] = seed
 			continue
 		}
-		i := uint(ii)
+		i := uint32(ii)
 		mt.x[i] = (f*(mt.x[i-1]^(mt.x[i-1]>>(mt.w-2))) + i) & mt.d
 	}
 }
 
-func (mt *MT) ExtractNumber() uint {
+func (mt *MT) ExtractNumber() uint32 {
 	if mt.index >= mt.n {
 		if mt.index > mt.n {
 			panic("Generator not seeded")
@@ -71,7 +71,7 @@ func (mt *MT) ExtractNumber() uint {
 	return y
 }
 
-func (mt *MT) temper(y uint) uint {
+func (mt *MT) temper(y uint32) uint32 {
 	y = rshiftMask(y, mt.u, mt.d)
 	y = lshiftMask(y, mt.s, mt.b)
 	y = lshiftMask(y, mt.t, mt.c)
@@ -79,15 +79,15 @@ func (mt *MT) temper(y uint) uint {
 	return y
 }
 
-func lshiftMask(y, bits, mask uint) uint {
+func lshiftMask(y, bits, mask uint32) uint32 {
 	return y ^ ((y << bits) & mask)
 }
 
-func rshiftMask(y, bits, mask uint) uint {
+func rshiftMask(y, bits, mask uint32) uint32 {
 	return y ^ ((y >> bits) & mask)
 }
 
-func (mt *MT) CloneFromObservations(obs []uint) *MT {
+func (mt *MT) CloneFromObservations(obs []uint32) *MT {
 	clone := NewMT()
 	clone.Init(0)
 	for i := range obs {
@@ -96,7 +96,7 @@ func (mt *MT) CloneFromObservations(obs []uint) *MT {
 	return clone
 }
 
-func (mt *MT) untemper(y uint) uint {
+func (mt *MT) untemper(y uint32) uint32 {
 	y = invertRshiftMask(y, mt.l, 0xFFFFFFFF)
 	y = invertLshiftMask(y, mt.t, mt.c)
 	y = invertLshiftMask(y, mt.s, mt.b)
@@ -104,9 +104,9 @@ func (mt *MT) untemper(y uint) uint {
 	return y
 }
 
-func invertRshiftMask(y, bits, mask uint) uint {
-	readMask := uint(1 << 31)
-	writeMask := uint(readMask >> bits)
+func invertRshiftMask(y, bits, mask uint32) uint32 {
+	readMask := uint32(1 << 31)
+	writeMask := uint32(readMask >> bits)
 	for writeMask > 0 {
 		bit := y & readMask
 		if bit != 0 {
@@ -119,9 +119,9 @@ func invertRshiftMask(y, bits, mask uint) uint {
 	return y
 }
 
-func invertLshiftMask(y, bits, mask uint) uint {
-	readMask := uint(1)
-	writeMask := uint(readMask << bits)
+func invertLshiftMask(y, bits, mask uint32) uint32 {
+	readMask := uint32(1)
+	writeMask := uint32(readMask << bits)
 	for writeMask > 0 {
 		bit := y & readMask
 		if bit != 0 {
@@ -136,10 +136,10 @@ func invertLshiftMask(y, bits, mask uint) uint {
 }
 
 func (mt *MT) twist() {
-	lowerMask := uint((1 << mt.r) - 1)
+	lowerMask := uint32((1 << mt.r) - 1)
 	upperMask := lowerMask ^ 0xffffffff
 	for ii := range mt.x {
-		i := uint(ii)
+		i := uint32(ii)
 		x := (mt.x[i] & upperMask) + (mt.x[(i+1)%mt.n] & lowerMask)
 		xA := x >> 1
 		if x%2 != 0 {

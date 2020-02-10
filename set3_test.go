@@ -3,15 +3,63 @@ package cpals
 import (
 	"bytes"
 	"errors"
+	"math"
 	"math/rand"
 	"sort"
 	"testing"
 	"time"
 )
 
+func TestS3C24(t *testing.T) {
+	msg := []byte("We wanna get loaded, we wanna party")
+	seed := uint32(1234)
+	buf := MTStream(seed, []byte(msg))
+	if BytesEqual(msg, buf) {
+		t.Fatalf("Encryption not very successful")
+	}
+	out := MTStream(seed, []byte(buf))
+	if !BytesEqual(msg, out) {
+		t.Fatalf("Can't encrypt/decrypt cycle")
+	}
+	t.Logf("Twerks")
+
+	secretSeed := uint16(rand.Uint32())
+	chosenPlainText := NewBytes(32, 'A')
+	buf = C24Encrypt(secretSeed, chosenPlainText)
+
+	var foundSeed uint16
+	found := false
+	for seed := 0; seed <= math.MaxUint16; seed++ {
+		msg := MTStream(uint32(seed), buf)
+		if bytes.HasSuffix(msg, chosenPlainText) {
+			foundSeed = uint16(seed)
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("Didn't find seed")
+	}
+	if foundSeed != secretSeed {
+		t.Fatalf("Found wrong seed got %d expected %d", foundSeed, secretSeed)
+	}
+	t.Logf("Found the seed!: %d", foundSeed)
+
+	t.Logf(`TODO: unclear on the password reset token
+Should it be:
+- identify if the token is/contains the first N bytes of an MT stream from recent epoch?
+- or try MTStream decrypt with recent epoch streams, but look for some structure (email?)
+`)
+}
+
+func C24Encrypt(seed uint16, msg []byte) []byte {
+	prefix := RandomRandomBytes(10, 20)
+	msg = append(prefix, msg...)
+	return MTStream(uint32(seed), msg)
+}
+
 func TestS3C23(t *testing.T) {
 	mt := NewMT()
-	randSeed := uint(rand.Int31())
+	randSeed := rand.Uint32()
 	mt.Init(randSeed)
 
 	randNumVals := rand.Intn(1000)
@@ -20,7 +68,7 @@ func TestS3C23(t *testing.T) {
 	}
 
 	stateSize := 624
-	observations := make([]uint, stateSize)
+	observations := make([]uint32, stateSize)
 	for i := range observations {
 		observations[i] = mt.ExtractNumber()
 	}
@@ -50,7 +98,7 @@ func TestS3C22(t *testing.T) {
 	t.Logf("Sleeping for %d secs", randSeconds)
 	time.Sleep(time.Second * time.Duration(randSeconds))
 
-	actualSeed := uint(unixNow)
+	actualSeed := uint32(unixNow)
 	mt.Init(actualSeed)
 
 	randSeconds = rand.Intn(10) + 5
@@ -70,10 +118,10 @@ func TestS3C22(t *testing.T) {
 	}
 }
 
-func C22GuessSeed(seenV uint) (uint, error) {
-	unixNow := uint(time.Now().Unix())
+func C22GuessSeed(seenV uint32) (uint32, error) {
+	unixNow := uint32(time.Now().Unix())
 	for i := 0; i < 1000; i++ {
-		trySeed := unixNow - uint(i)
+		trySeed := unixNow - uint32(i)
 		mt := NewMT()
 		mt.Init(trySeed)
 		for j := 0; j < 100; j++ {
@@ -88,7 +136,7 @@ func C22GuessSeed(seenV uint) (uint, error) {
 }
 
 func TestS3C21(t *testing.T) {
-	expected := []uint{
+	expected := []uint32{
 		2357136044,
 		2546248239,
 		3071714933,
