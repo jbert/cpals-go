@@ -8,6 +8,43 @@ import (
 	"testing"
 )
 
+func TestS4C28(t *testing.T) {
+
+	msg := Hamlet
+	digest := PrefixMac(YellowKey, msg)
+	d2 := PrefixMac(YellowKey, msg)
+	if !BytesEqual(digest, d2) {
+		t.Fatalf("Digest is random...>")
+	}
+	t.Log("Digest is not random")
+
+	notHamlet := make([]byte, len(Hamlet))
+	copy(notHamlet, Hamlet)
+	copy(notHamlet[10:], []byte("ICE ICE BABY"))
+
+	if BytesEqual(Hamlet, notHamlet) {
+		t.Fatal("Messed up creating test data - didn't change")
+	}
+	if len(Hamlet) != len(notHamlet) {
+		t.Fatal("Messed up creating test data - want same length")
+	}
+	t.Log("Can create test data")
+
+	d2 = PrefixMac(YellowKey, notHamlet)
+	if BytesEqual(digest, d2) {
+		t.Fatalf("Hamlet and notHamlet have same digest under same key")
+	}
+	t.Log("Diff messages have diff data")
+
+	randomKey := RandomKey()
+	d2 = PrefixMac(randomKey, Hamlet)
+	if BytesEqual(digest, d2) {
+		t.Fatalf("Hamlet has same digest with diff key")
+	}
+	t.Log("Diff keys with same message have diff data")
+
+}
+
 func TestS4C27(t *testing.T) {
 	blockSize := 16
 

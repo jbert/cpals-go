@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+
+	"github.com/jbert/cpals-go/sha1"
 )
 
 var YellowKey = []byte("YELLOW SUBMARINE")
@@ -609,4 +611,11 @@ func MTStream(seed uint32, in []byte) []byte {
 		panic(fmt.Sprintf("Internal error AESCTR Xor : %s", err))
 	}
 	return buf
+}
+
+func PrefixMac(key []byte, msg []byte) []byte {
+	h := sha1.New()
+	h.MustWrite(key)
+	h.MustWrite(msg)
+	return h.Sum(nil)
 }
