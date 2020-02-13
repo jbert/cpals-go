@@ -21,15 +21,15 @@ To be, or not to be, that is the question:
 Whether 'tis nobler in the mind to suffer
 The slings and arrows of outrageous fortune,
 Or to take arms against a sea of troubles
-And by opposing end them. To die—to sleep,
+And by opposing end them. To die-to sleep,
 No more; and by a sleep to say we end
 The heart-ache and the thousand natural shocks
 That flesh is heir to: 'tis a consummation
 Devoutly to be wish'd. To die, to sleep;
-To sleep, perchance to dream—ay, there's the rub:
+To sleep, perchance to dream-ay, there's the rub:
 For in that sleep of death what dreams may come,
 When we have shuffled off this mortal coil,
-Must give us pause—there's the respect
+Must give us pause-there's the respect
 That makes calamity of so long life.
 For who would bear the whips and scorns of time,
 Th'oppressor's wrong, the proud man's contumely,
@@ -422,6 +422,10 @@ func (d *CBCDecrypter) CryptBlocks(dst, src []byte) {
 }
 
 func AESCBCDecrypt(key []byte, iv []byte, buf []byte) []byte {
+	return AESCBCDecryptMaybePadding(key, iv, buf, true)
+}
+
+func AESCBCDecryptMaybePadding(key []byte, iv []byte, buf []byte, unpad bool) []byte {
 	aes, err := aes.NewCipher(key)
 	if err != nil {
 		panic(fmt.Sprintf("Can't create aes cipher: %s", err))
@@ -430,9 +434,11 @@ func AESCBCDecrypt(key []byte, iv []byte, buf []byte) []byte {
 
 	dst := make([]byte, len(buf))
 	dec.CryptBlocks(dst, buf)
-	dst, err = BytesPKCS7UnPad(dst)
-	if err != nil {
-		panic(fmt.Sprintf("Can't decrypt - invalid padding: %s", err))
+	if unpad {
+		dst, err = BytesPKCS7UnPad(dst)
+		if err != nil {
+			panic(fmt.Sprintf("Can't decrypt - invalid padding: %s", err))
+		}
 	}
 	return dst
 }
