@@ -7,8 +7,85 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jbert/cpals-go/md4"
 	"github.com/jbert/cpals-go/sha1"
 )
+
+func TestS4C30(t *testing.T) {
+	msg := []byte("comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon")
+	d := C30MAC(msg)
+
+	if !C30Verify(msg, d) {
+		t.Fatalf("Message doesn't verify")
+	}
+	t.Log("MAC checks out")
+	if C30IsAdmin(msg, d) {
+		t.Fatalf("Message is already admin")
+	}
+	t.Log("We aren't admin")
+	var naiveAttempt []byte
+	naiveAttempt = append(naiveAttempt, msg...)
+	naiveAttempt = append(naiveAttempt, []byte(";admin=true;")...)
+	if C30IsAdmin(naiveAttempt, d) {
+		t.Fatalf("Can get admin trivially")
+	}
+	t.Log("We can't just frob the msg")
+
+	found := false
+KEYLEN:
+	for keyLen := 0; keyLen < 30; keyLen++ {
+		//		t.Logf("Keylen %d", keyLen)
+		hackedMessage, hackedDigest := C30LengthExtend(keyLen, msg, d)
+
+		if C30IsAdmin(hackedMessage, hackedDigest) {
+			t.Log("<hacker>I'm in</hacker>")
+			t.Logf("Keylen %d", keyLen)
+			found = true
+			break KEYLEN
+		}
+
+	}
+	if !found {
+		t.Fatal("Nope - you lose")
+	}
+}
+
+func C30LengthExtend(keyLen int, msg, d []byte) ([]byte, []byte) {
+	clone, err := md4.CloneFromDigest(uint64(len(msg)), d)
+	if err != nil {
+		panic(fmt.Sprintf("Can't clone: %s", err))
+	}
+	attackMsg := []byte(";admin=true;")
+	clone.MustWrite(attackMsg)
+	cloneDigest := clone.Sum(nil)
+
+	var cloneMsg []byte
+	cloneMsg = append(cloneMsg, msg...)
+	cloneMsg = append(cloneMsg, md4.MDPadding(uint64(keyLen+len(msg)))...)
+	cloneMsg = append(cloneMsg, attackMsg...)
+	return cloneMsg, cloneDigest
+}
+
+var C30Key = RandomKey()
+
+func C30IsAdmin(msg, digest []byte) bool {
+	if !C30Verify(msg, digest) {
+		return false // Faker!
+	}
+	if !bytes.Contains(msg, []byte(";admin=true;")) {
+		return false // not admin!
+	}
+	return true // all copacetic
+}
+
+func C30MAC(msg []byte) []byte {
+	return MD4PrefixMac(C30Key, msg)
+}
+
+func C30Verify(msg, digest []byte) bool {
+	d := C30MAC(msg)
+	return BytesEqual(d, digest)
+}
 
 func TestS4C29(t *testing.T) {
 	msg := []byte("comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon")

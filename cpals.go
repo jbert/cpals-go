@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	// We use local SHA1
+	"github.com/jbert/cpals-go/md4"
 	"github.com/jbert/cpals-go/sha1"
 )
 
@@ -617,6 +618,14 @@ func MTStream(seed uint32, in []byte) []byte {
 func SHA1PrefixMac(key []byte, msg []byte) []byte {
 	// We use local SHA1
 	h := sha1.New()
+	h.MustWrite(key)
+	h.MustWrite(msg)
+	return h.Sum(nil)
+}
+
+func MD4PrefixMac(key []byte, msg []byte) []byte {
+	// We use local SHA1
+	h := md4.New()
 	h.MustWrite(key)
 	h.MustWrite(msg)
 	return h.Sum(nil)
