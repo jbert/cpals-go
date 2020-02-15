@@ -10,6 +10,7 @@ package sha1
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 )
@@ -110,6 +111,10 @@ func (d *Digest) Reset() {
 	d.len = 0
 }
 
+func (d *Digest) String() string {
+	return fmt.Sprintf("D: %X %X %X %X %X %s %d %d", d.h[0], d.h[1], d.h[2], d.h[3], d.h[4], hex.EncodeToString(d.x[:]), d.nx, d.len)
+}
+
 // New returns a new Digest computing the SHA1 checksum. The Hash also
 // implements encoding.BinaryMarshaler and encoding.BinaryUnmarshaler to
 // marshal and unmarshal the internal state of the hash.
@@ -117,6 +122,23 @@ func New() *Digest {
 	d := new(Digest)
 	d.Reset()
 	return d
+}
+
+func CloneFromDigest(msgLen uint64, digest []byte) (*Digest, error) {
+	if len(digest) != Size {
+		return nil, fmt.Errorf("Wrong size for digest got %d expected %d", len(digest), Size)
+	}
+
+	d := New()
+
+	d.h[0] = binary.BigEndian.Uint32(digest[0:])
+	d.h[1] = binary.BigEndian.Uint32(digest[4:])
+	d.h[2] = binary.BigEndian.Uint32(digest[8:])
+	d.h[3] = binary.BigEndian.Uint32(digest[12:])
+	d.h[4] = binary.BigEndian.Uint32(digest[16:])
+	d.len = msgLen + uint64(len(MDPadding(msgLen)))
+
+	return d, nil
 }
 
 func (d *Digest) Size() int { return Size }
@@ -163,21 +185,29 @@ func (d *Digest) Sum(in []byte) []byte {
 	return append(in, hash[:]...)
 }
 
-func (d *Digest) checkSum() [Size]byte {
-	len := d.len
+func MDPadding(len uint64) []byte {
+	var padding []byte
+
 	// Padding.  Add a 1 bit and 0 bits until 56 bytes mod 64.
 	var tmp [64]byte
 	tmp[0] = 0x80
+
 	if len%64 < 56 {
-		d.Write(tmp[0 : 56-len%64])
+		padding = append(padding, tmp[0:56-len%64]...)
 	} else {
-		d.Write(tmp[0 : 64+56-len%64])
+		padding = append(padding, tmp[0:64+56-len%64]...)
 	}
 
 	// Length in bits.
 	len <<= 3
 	binary.BigEndian.PutUint64(tmp[:], len)
-	d.Write(tmp[0:8])
+	padding = append(padding, tmp[0:8]...)
+
+	return padding
+}
+
+func (d *Digest) checkSum() [Size]byte {
+	d.Write(MDPadding(d.len))
 
 	if d.nx != 0 {
 		panic("d.nx != 0")

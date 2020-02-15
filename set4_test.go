@@ -6,13 +6,91 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+
+	"github.com/jbert/cpals-go/sha1"
 )
+
+func TestS4C29(t *testing.T) {
+	msg := []byte("comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon")
+	d := C29MAC(msg)
+
+	if !C29Verify(msg, d) {
+		t.Fatalf("Message doesn't verify")
+	}
+	t.Log("MAC checks out")
+	if C29IsAdmin(msg, d) {
+		t.Fatalf("Message is already admin")
+	}
+	t.Log("We aren't admin")
+	var naiveAttempt []byte
+	naiveAttempt = append(naiveAttempt, msg...)
+	naiveAttempt = append(naiveAttempt, []byte(";admin=true;")...)
+	if C29IsAdmin(naiveAttempt, d) {
+		t.Fatalf("Can get admin trivially")
+	}
+	t.Log("We can't just frob the msg")
+
+	found := false
+KEYLEN:
+	for keyLen := 0; keyLen < 30; keyLen++ {
+		//		t.Logf("Keylen %d", keyLen)
+		hackedMessage, hackedDigest := C29LengthExtend(keyLen, msg, d)
+
+		if C29IsAdmin(hackedMessage, hackedDigest) {
+			t.Log("<hacker>I'm in</hacker>")
+			t.Logf("Keylen %d", keyLen)
+			found = true
+			break KEYLEN
+		}
+
+	}
+	if !found {
+		t.Fatal("Nope - you lose")
+	}
+}
+
+func C29LengthExtend(keyLen int, msg, d []byte) ([]byte, []byte) {
+	clone, err := sha1.CloneFromDigest(uint64(len(msg)), d)
+	if err != nil {
+		panic(fmt.Sprintf("Can't clone: %s", err))
+	}
+	attackMsg := []byte(";admin=true;")
+	clone.MustWrite(attackMsg)
+	cloneDigest := clone.Sum(nil)
+
+	var cloneMsg []byte
+	cloneMsg = append(cloneMsg, msg...)
+	cloneMsg = append(cloneMsg, sha1.MDPadding(uint64(keyLen+len(msg)))...)
+	cloneMsg = append(cloneMsg, attackMsg...)
+	return cloneMsg, cloneDigest
+}
+
+var C29Key = RandomKey()
+
+func C29IsAdmin(msg, digest []byte) bool {
+	if !C29Verify(msg, digest) {
+		return false // Faker!
+	}
+	if !bytes.Contains(msg, []byte(";admin=true;")) {
+		return false // not admin!
+	}
+	return true // all copacetic
+}
+
+func C29MAC(msg []byte) []byte {
+	return SHA1PrefixMac(C29Key, msg)
+}
+
+func C29Verify(msg, digest []byte) bool {
+	d := C29MAC(msg)
+	return BytesEqual(d, digest)
+}
 
 func TestS4C28(t *testing.T) {
 
 	msg := Hamlet
-	digest := PrefixMac(YellowKey, msg)
-	d2 := PrefixMac(YellowKey, msg)
+	digest := SHA1PrefixMac(YellowKey, msg)
+	d2 := SHA1PrefixMac(YellowKey, msg)
 	if !BytesEqual(digest, d2) {
 		t.Fatalf("Digest is random...>")
 	}
@@ -30,19 +108,27 @@ func TestS4C28(t *testing.T) {
 	}
 	t.Log("Can create test data")
 
-	d2 = PrefixMac(YellowKey, notHamlet)
+	d2 = SHA1PrefixMac(YellowKey, notHamlet)
 	if BytesEqual(digest, d2) {
 		t.Fatalf("Hamlet and notHamlet have same digest under same key")
 	}
 	t.Log("Diff messages have diff data")
 
 	randomKey := RandomKey()
-	d2 = PrefixMac(randomKey, Hamlet)
+	d2 = SHA1PrefixMac(randomKey, Hamlet)
 	if BytesEqual(digest, d2) {
 		t.Fatalf("Hamlet has same digest with diff key")
 	}
 	t.Log("Diff keys with same message have diff data")
 
+	// $ echo -n badger | sha1sum
+	// 4e199b4a1c40b497a95fcd1cd896351733849949  -
+	badgerDigest := []byte{0x4e, 0x19, 0x9b, 0x4a, 0x1c, 0x40, 0xb4, 0x97, 0xa9, 0x5f, 0xcd, 0x1c, 0xd8, 0x96, 0x35, 0x17, 0x33, 0x84, 0x99, 0x49}
+	d2 = SHA1PrefixMac([]byte("badger"), nil)
+	if !BytesEqual(d2, badgerDigest) {
+		t.Fatalf("Wromg test vector: got %s expected %s", EnHex(d2), EnHex(badgerDigest))
+	}
+	t.Log("Badger in the house")
 }
 
 func TestS4C27(t *testing.T) {
