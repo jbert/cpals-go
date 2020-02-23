@@ -2,14 +2,105 @@ package cpals
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jbert/cpals-go/md4"
 	"github.com/jbert/cpals-go/sha1"
 )
+
+func TestS4C31(t *testing.T) {
+	port := 8080
+	s := NewC31Server(port)
+	s.MustStart()
+	//	time.Sleep(time.Second * 100)
+	defer s.Close()
+
+	file := "hamlet"
+	try := func(sig []byte) bool {
+		url := fmt.Sprintf("http://localhost:%d?file=%s&signature=%s", port, file, EnHex(sig))
+		resp, err := http.Get(url)
+		if err != nil {
+			panic(fmt.Sprintf("Can't do request: %s", err))
+		}
+		resp.Body.Close()
+		return resp.StatusCode == 200
+
+	}
+	sig, err := TimingAttack(try)
+	if err != nil {
+		t.Fatalf("Failed to find: %s", err)
+	}
+
+	worked := try(sig)
+	if !worked {
+		t.Fatalf("Found sig for %s but did not work :-(", file)
+	} else {
+		t.Logf("Found %s sig %s", file, EnHex(sig))
+	}
+}
+
+func TimingAttack(try func([]byte) bool) ([]byte, error) {
+	found := false
+	sig := []byte{}
+
+	measure := func(b byte) (bool, time.Duration) {
+		repeat := 3
+		fastestDur := time.Hour * 100
+
+		// We may be slow for various reasons
+		// Pick the fastest possible
+		for i := 0; i < repeat; i++ {
+			before := time.Now()
+			found := try(sig)
+			dur := time.Since(before)
+			if dur < fastestDur {
+				fastestDur = dur
+			}
+			if found {
+				return true, fastestDur
+			}
+		}
+		return false, fastestDur
+	}
+NEXTBYTE:
+	for {
+		sig = append(sig, 0)
+		pos := len(sig) - 1
+
+		fmt.Printf("%s: Checking pos %d\n", EnHex(sig), pos)
+
+		slowestB := 0
+		slowestDur := time.Duration(0)
+
+		for b := 0; b < 256; b++ {
+			//			t.Logf("Checking byte %d", b)
+			sig[pos] = byte(b)
+			var dur time.Duration
+			found, dur = measure(byte(b))
+			//			fmt.Printf("B %02X Dur %s\n", b, dur)
+			if dur > slowestDur {
+				slowestDur = dur
+				slowestB = b
+			}
+			if found {
+				break NEXTBYTE
+			}
+		}
+		sig[pos] = byte(slowestB)
+	}
+
+	if found {
+		return sig, nil
+	} else {
+		return nil, errors.New("No joy")
+	}
+}
 
 func TestS4C30(t *testing.T) {
 	msg := []byte("comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon")

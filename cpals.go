@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	// We use local SHA1
 	"github.com/jbert/cpals-go/md4"
@@ -629,4 +630,22 @@ func MD4PrefixMac(key []byte, msg []byte) []byte {
 	h.MustWrite(key)
 	h.MustWrite(msg)
 	return h.Sum(nil)
+}
+
+func InsecureCompare(a, b []byte) bool {
+	delay := 1 * time.Millisecond
+
+	for i := range a {
+		if i > len(a)-1 {
+			return false
+		}
+		if i > len(b)-1 {
+			return false
+		}
+		if a[i] != b[i] {
+			return false
+		}
+		time.Sleep(delay)
+	}
+	return true
 }

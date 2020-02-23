@@ -2,7 +2,8 @@ package hmac
 
 import (
 	"fmt"
-	"hash"
+
+	"github.com/jbert/cpals-go/hash"
 )
 
 type HMAC struct {

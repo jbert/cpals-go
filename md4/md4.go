@@ -12,7 +12,11 @@ package md4 // import "golang.org/x/crypto/md4"
 import (
 	"encoding/binary"
 	"fmt"
-) // The size of an MD4 checksum in bytes.
+
+	"github.com/jbert/cpals-go/hash"
+)
+
+// The size of an MD4 checksum in bytes.
 const Size = 16
 
 // The blocksize of MD4 in bytes.
@@ -44,7 +48,7 @@ func (d *Digest) Reset() {
 }
 
 // New returns a new hash.Hash computing the MD4 checksum.
-func New() *Digest {
+func New() hash.Hash {
 	d := new(Digest)
 	d.Reset()
 	return d
@@ -55,7 +59,8 @@ func CloneFromDigest(msgLen uint64, digest []byte) (*Digest, error) {
 		return nil, fmt.Errorf("Wrong size for digest got %d expected %d", len(digest), Size)
 	}
 
-	d := New()
+	d := new(Digest)
+	d.Reset()
 
 	d.s[0] = binary.LittleEndian.Uint32(digest[0:])
 	d.s[1] = binary.LittleEndian.Uint32(digest[4:])
