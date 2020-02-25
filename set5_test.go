@@ -1,11 +1,12 @@
 package cpals
 
 import (
+	"math/big"
 	"math/rand"
 	"testing"
 )
 
-func TestS5C33(t *testing.T) {
+func TestS5C33a(t *testing.T) {
 
 	// Inline diffie-helman with small ints
 	p := 37
@@ -19,6 +20,43 @@ func TestS5C33(t *testing.T) {
 	s := intExpMod(B, a, p)
 	s2 := intExpMod(A, b, p)
 	if s == s2 {
+		t.Logf("Session key: %d - yay", s)
+	} else {
+		t.Fatalf("Failed to get same session key from two rando numbers: %d != %d", s, s2)
+	}
+}
+
+func TestS5C33b(t *testing.T) {
+
+	p := BigFromHex(`
+ffffffffffffffffc90fdaa22168c234c4c6628b80dc1cd129024
+e088a67cc74020bbea63b139b22514a08798e3404ddef9519b3cd
+3a431b302b0a6df25f14374fe1356d6d51c245e485b576625e7ec
+6f44c42e9a637ed6b0bff5cb6f406b7edee386bfb5a899fa5ae9f
+24117c4b1fe649286651ece45b3dc2007cb8a163bf0598da48361
+c55d39a69163fa8fd24cf5f83655d23dca3ad961c62f356208552
+bb9ed529077096966d670c354e4abc9804f1746c08ca237327fff
+fffffffffffff
+`)
+	g := big.NewInt(2)
+	t.Logf("DH: p %s", p)
+	t.Logf("DH: g %s", g)
+
+	a := BigRand(p)
+	A := BigExpMod(g, a, p)
+
+	t.Logf("DH: a %s", a)
+	t.Logf("DH: A %s", A)
+
+	b := BigRand(p)
+	B := BigExpMod(g, b, p)
+
+	t.Logf("DH: b %s", b)
+	t.Logf("DH: B %s", B)
+
+	s := BigExpMod(a, B, p)
+	s2 := BigExpMod(b, A, p)
+	if BigEqual(s, s2) {
 		t.Logf("Session key: %d - yay", s)
 	} else {
 		t.Fatalf("Failed to get same session key from two rando numbers: %d != %d", s, s2)
