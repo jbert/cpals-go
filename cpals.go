@@ -616,6 +616,12 @@ func MTStream(seed uint32, in []byte) []byte {
 	return buf
 }
 
+func SHA1(in []byte) []byte {
+	h := sha1.New()
+	h.MustWrite(in)
+	return h.Sum(nil)
+}
+
 func SHA1PrefixMac(key []byte, msg []byte) []byte {
 	// We use local SHA1
 	h := sha1.New()
