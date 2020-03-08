@@ -15,6 +15,9 @@ import (
 )
 
 func TestS4C31(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping timing attack test")
+	}
 	port := 8080
 	s := NewC31Server(port)
 	s.MustStart()
@@ -397,7 +400,7 @@ POS:
 	}
 
 	if gotAdmin {
-		t.Fatalf("Woo hoo! got admin")
+		t.Logf("Woo hoo! got admin")
 	} else {
 		t.Fatalf("Failed to get admin :-(")
 	}
