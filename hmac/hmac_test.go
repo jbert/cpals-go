@@ -1,8 +1,10 @@
 package hmac
 
 import (
-	"crypto/sha1"
+	//	"crypto/sha1"
 	"testing"
+
+	"github.com/jbert/cpals-go/sha1"
 )
 
 func TestBasic(t *testing.T) {
