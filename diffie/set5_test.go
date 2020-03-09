@@ -7,20 +7,60 @@ import (
 )
 
 func TestS5C34(t *testing.T) {
+	t.Run("HONEST", testHonest)
+	t.Run("MITM", testMITM)
+}
+
+func testMITM(t *testing.T) {
+	t.Log("Test MITM")
+	hs := NewHonestServer()
+	hc := NewHonestClient()
+	mitm := NewEvilMITM()
+
+	// This is what MITM can do ...
+	mitm.Connect(hs)
+	hc.Connect(mitm)
+
+	secretMessages := testComms(t, hc, hs)
+
+	snoopedMsgs := mitm.SnoopedMessages()
+	for _, secretMsg := range secretMessages {
+		found := false
+		for _, snoopedMsg := range snoopedMsgs {
+			if snoopedMsg == secretMsg {
+				t.Logf("Snooped message: %s", secretMsg)
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("Didn't snoop message: %s", secretMsg)
+		}
+	}
+}
+
+func testHonest(t *testing.T) {
+	t.Log("Test HONEST")
+	hs := NewHonestServer()
+
+	hc := NewHonestClient()
+	hc.Connect(hs)
+	testComms(t, hc, hs)
+}
+
+func testComms(t *testing.T, hc *HonestClient, hs *HonestServer) []string {
+	secretMessages := []string{}
+
 	aMessage := "Yo, what's up?"
 	expectedReply := "Not much, you?"
 
-	hs := NewHonestServer()
 	hs.Replies = map[string]string{
 		aMessage:       expectedReply,
 		"ICE ICE BABY": "We don't do that here",
 		"default":      "No hablo cop",
 	}
 
-	hc := NewHonestClient()
-	hc.Connect(hs)
-
 	wireMessage := hc.Encrypt(aMessage)
+	secretMessages = append(secretMessages, aMessage)
 	if cpals.BytesEqual(wireMessage, []byte(aMessage)) {
 		t.Fatalf("Encryption didn't do much")
 	} else {
@@ -29,6 +69,7 @@ func TestS5C34(t *testing.T) {
 
 	wireReply := hc.Send(wireMessage)
 	reply := hc.Decrypt(wireReply)
+	secretMessages = append(secretMessages, reply)
 	if cpals.BytesEqual(wireReply, []byte(reply)) {
 		t.Fatalf("Decryption didn't do much")
 	} else {
@@ -41,4 +82,5 @@ func TestS5C34(t *testing.T) {
 		t.Fatalf("Failed to get correct reply: got %s expected %s", reply, expectedReply)
 	}
 
+	return secretMessages
 }

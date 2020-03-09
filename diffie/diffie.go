@@ -5,7 +5,7 @@ import (
 	"math/big"
 
 	"github.com/jbert/cpals-go"
-	cbig "github.com/jbert/cpals-go/big"
+	"github.com/jbert/cpals-go/cbig"
 )
 
 var nistP = cbig.BigFromHex(`
@@ -41,8 +41,13 @@ type Cryptor struct {
 	g, p, a, A, B *big.Int
 }
 
-func (c Cryptor) SessionKey() []byte {
-	s := cbig.BigExpMod(c.a, c.B, c.p)
+func (c Cryptor) String() string {
+	return fmt.Sprintf("C: a %s A %s B %s p %s g %s",
+		cbig.BigStr(c.a), cbig.BigStr(c.A), cbig.BigStr(c.B), cbig.BigStr(c.p), cbig.BigStr(c.g))
+}
+
+func (c Cryptor) SessionKey(purpose string) []byte {
+	s := cbig.BigExpMod(c.B, c.a, c.p)
 	hashS := cpals.SHA1(s.Bytes())
 	if len(hashS) < 16 {
 		panic(fmt.Sprintf("Unexpected hash key length: %d", len(hashS)))
@@ -52,18 +57,21 @@ func (c Cryptor) SessionKey() []byte {
 
 func (c Cryptor) Encrypt(s string) []byte {
 	msg := []byte(s)
-	key := c.SessionKey()
+	key := c.SessionKey("ENC")
 	iv := cpals.RandomKey()
-	fmt.Printf("ENC: key [%s] iv [%s]", cpals.EnHex(key), cpals.EnHex(iv))
 	buf := cpals.AESCBCEncrypt(key, iv, msg)
 	return append(buf, iv...)
 }
 
-func (c Cryptor) Decrypt(buf []byte) string {
-	key := c.SessionKey()
-	iv := buf[len(buf)-len(key):]
+func splitIV(buf []byte, n int) ([]byte, []byte) {
+	iv := buf[len(buf)-n:]
 	buf = buf[:len(buf)-len(iv)]
-	fmt.Printf("DEC: key [%s] iv [%s]", cpals.EnHex(key), cpals.EnHex(iv))
+	return iv, buf
+}
+
+func (c Cryptor) Decrypt(buf []byte) string {
+	key := c.SessionKey("DEC")
+	iv, buf := splitIV(buf, len(key))
 	msg := cpals.AESCBCDecrypt(key, iv, buf)
 	return string(msg)
 }
@@ -80,7 +88,7 @@ func NewHonestClient() *HonestClient {
 	a := cbig.BigRand(p)
 	A := cbig.BigExpMod(g, a, p)
 
-	return &HonestClient{
+	hc := &HonestClient{
 		Cryptor: Cryptor{
 			g: g,
 			p: p,
@@ -88,6 +96,7 @@ func NewHonestClient() *HonestClient {
 			A: A,
 		},
 	}
+	return hc
 }
 
 func (hc *HonestClient) Connect(server Server) {
@@ -117,7 +126,7 @@ func NewHonestServer() *HonestServer {
 	a := cbig.BigRand(p)
 	A := cbig.BigExpMod(g, a, p)
 
-	return &HonestServer{
+	hs := &HonestServer{
 		Cryptor: Cryptor{
 			a: a,
 			A: A,
@@ -126,6 +135,7 @@ func NewHonestServer() *HonestServer {
 			"default": "Not initialised :-(",
 		},
 	}
+	return hs
 }
 
 func (hs *HonestServer) Handshake(hello Request) Reply {
@@ -150,4 +160,61 @@ func (hs *HonestServer) Call(buf []byte) []byte {
 	}
 	replyBuf := hs.Encrypt(reply)
 	return replyBuf
+}
+
+type EvilMITM struct {
+	Cryptor
+	server Server
+
+	savedMessages [][]byte
+}
+
+func NewEvilMITM() *EvilMITM {
+	return &EvilMITM{}
+}
+
+func (mitm *EvilMITM) Connect(server Server) {
+	mitm.server = server
+}
+
+func (mitm *EvilMITM) Handshake(hello Request) Reply {
+	mitm.g = hello.g
+	mitm.p = hello.p
+	mitm.A = hello.A
+
+	evilHandshake := Request{
+		p: mitm.p,
+		g: mitm.g,
+		A: mitm.p,
+	}
+
+	reply := mitm.server.Handshake(evilHandshake)
+	mitm.B = reply.B
+	evilReply := Reply{
+		B: mitm.p,
+	}
+	return evilReply
+}
+
+func (mitm *EvilMITM) Call(msg []byte) []byte {
+	mitm.savedMessages = append(mitm.savedMessages, msg)
+	reply := mitm.server.Call(msg)
+	mitm.savedMessages = append(mitm.savedMessages, reply)
+	return reply
+}
+
+func (mitm *EvilMITM) SnoopedMessages() []string {
+	var msgs []string
+	// Both sides are using pubkey == p
+	// key is (B ** a) %p == (p**a) %p == 0
+	s := big.NewInt(0)
+	hashS := cpals.SHA1(s.Bytes())
+	key := hashS[0:16]
+
+	for _, buf := range mitm.savedMessages {
+		iv, buf := splitIV(buf, len(key))
+		msg := cpals.AESCBCDecrypt(key, iv, buf)
+		msgs = append(msgs, string(msg))
+	}
+	return msgs
 }

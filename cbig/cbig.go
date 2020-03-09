@@ -1,4 +1,4 @@
-package big
+package cbig
 
 import (
 	"fmt"
@@ -10,10 +10,20 @@ import (
 var source = rand.NewSource(0)
 var rnd = rand.New(source)
 
+func BigStr(n *big.Int) string {
+	s := n.String()
+	upTo := 16
+	if len(s) < upTo {
+		upTo = len(s)
+	}
+	return fmt.Sprintf("%d:%s", len(s), s[0:upTo])
+}
+
 func BigFromHex(s string) *big.Int {
 	var n big.Int
 	s = strings.ReplaceAll(s, "\n", "")
 	s = strings.ReplaceAll(s, " ", "")
+	s = strings.ReplaceAll(s, "\t", "")
 	_, ok := n.SetString(s, 16)
 	if !ok {
 		panic(fmt.Sprintf("Failed to set int from string: %s", s))
@@ -22,7 +32,9 @@ func BigFromHex(s string) *big.Int {
 }
 
 func BigRand(upTo *big.Int) *big.Int {
-	return big.NewInt(0).Rand(rnd, upTo)
+	var n big.Int
+	n.Rand(rnd, upTo)
+	return &n
 }
 
 func BigCopy(a *big.Int) *big.Int {
@@ -37,8 +49,30 @@ func BigExpMod(g, a, p *big.Int) *big.Int {
 	n.Exp(g, a, p)
 	return &n
 }
+
+func intExpMod(g, a, p int) int {
+	v := 1
+	e := g
+	for a > 0 {
+
+		if a%2 == 1 {
+			v *= e
+			v %= p
+		}
+
+		a >>= 1
+		e *= e
+		e %= p
+	}
+	if v < 0 {
+		v += p
+	}
+	return v
+}
+
 */
-func BigExpMod(g, a, p *big.Int) *big.Int {
+func BigExpMod(g, aArg, p *big.Int) *big.Int {
+	a := BigCopy(aArg)
 	v := big.NewInt(1)
 	e := BigCopy(g)
 
@@ -46,7 +80,7 @@ func BigExpMod(g, a, p *big.Int) *big.Int {
 	one := big.NewInt(1)
 	two := big.NewInt(2)
 
-	for a.Cmp(zero) < 0 {
+	for a.Cmp(zero) > 0 {
 
 		amod2 := big.NewInt(0)
 		amod2.Mod(a, two)
